@@ -6,7 +6,7 @@
 #include <map>
 #include "types.h"
 
-std::vector<_TCHAR> readXMLFromFile(const _TCHAR* filename) {
+inline std::vector<_TCHAR> readXMLFromFile(const _TCHAR* filename) {
 	std::basic_ifstream<_TCHAR> readFile(filename);
 	if (readFile.is_open()) {
 		std::basic_string<_TCHAR> fileContent((std::istreambuf_iterator<_TCHAR>(readFile)),

@@ -3,11 +3,13 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
+#include <regex>
 
 void JsonWriter::Initialize(const std::vector<string>& namespaces, const std::vector<Class>& classes)
 {
 	CalculateNamespaces(namespaces);
 	CalculateClasses(classes);
+	CalculateMethodOverrides();
 }
 
 void JsonWriter::CalculateNamespaces(const std::vector<string>& namespaces)
@@ -56,8 +58,7 @@ void JsonWriter::CalculateClasses(const std::vector<Class>& classes)
 	for (const auto& item: classes) {
 		ClassEntry newEntry;
 		newEntry.name = GetLastId(item.name);
-		newEntry.doxygenId = item.doxygenId;
-		newEntry.type = item.type;
+		newEntry.data = item;
 		string prefix = GetWithoutLastId(item.name);
 
 		// newEntry.parentId
@@ -87,6 +88,7 @@ void JsonWriter::CalculateClasses(const std::vector<Class>& classes)
 				connection.type = MEMBER_ITEM;
 				connection.connectionCode += _T(" ");
 				connection.connectionCode += member.name;
+				connection.connectedMember = member.name;
 				newEntry.connections.push_back(connection);
 			}
 		}
@@ -150,7 +152,7 @@ string JsonWriter::GetWithoutLastId(const string& name)
 	return string();
 }
 
-void JsonWriter::Write()
+void JsonWriter::WriteClassesJson()
 {
 	// Clear orphan items
 	std::set<string> namespacesToBeCleared, classesToBeCleared;
@@ -189,7 +191,7 @@ void JsonWriter::Write()
 	}
 
 
-	std::basic_ofstream<_TCHAR> file(m_outputDir+_T("\\classes.json"));
+	std::basic_ofstream<_TCHAR> file(m_outputDir + _T("\\classes.json"));
 	file << _T("{\"nodes\": [") << std::endl;
 	{
 		bool first = true;
@@ -205,7 +207,7 @@ void JsonWriter::Write()
 				file << _T(",") << std::endl;
 			}
 			const _TCHAR* type = nullptr;
-			switch(c.second.type) {
+			switch(c.second.data.type) {
 			case Class::STRUCT: type = _T("struct"); break;
 			case Class::INTERFACE: type = _T("interface"); break;
 			case Class::CLASS: type = _T("class"); break;
@@ -246,33 +248,26 @@ void JsonWriter::Write()
 	}
 	file << std::endl << _T("]}") << std::endl;
 	file.close();
-	/*
-	for (const auto& n: m_namespaces) {
-		std::wcout << _T("namespace: ") << n.first << _T(", ") << n.second.name << _T(", ") << n.second.parentId << std::endl;
-	}
-
-	for (const auto& c: m_classes) {
-		std::wcout << _T("class: ") << c.first << _T(", ")
-			<< c.second.name << _T(", ")
-			<< c.second.namespaceId << _T(", ")
-			<< c.second.parentId << std::endl;
-		for (const auto& connection: c.second.connections) {
-			std::wcout << _T("connection: ") << connection.targetId << _T(", ")
-				<< connection.type << _T(", ")
-				<< connection.connectionCode << _T(", ") << std::endl;
-		}
-	}*/
 }
 
+string escape(string s)
+{
+	std::size_t start_pos = 0;
+    while((start_pos = s.find(_T("\""), start_pos)) != string::npos) {
+        s.replace(start_pos, 1, _T("\\\""));
+        start_pos += 2;
+    }
+    return s;
+}
 
 string JsonWriter::WriteNode(const stringRef& id, const stringRef& name, const stringRef& parent, const stringRef& type) const
 {
 	std::basic_ostringstream<_TCHAR> s;
-	s << _T("{\"id\":\"") << id.str()
-		<< _T("\", \"name\":\"") << name.str()
-		<< _T("\", \"type\":\"") << type.str();
+	s << _T("{\"id\":\"") << escape(id.str())
+		<< _T("\", \"name\":\"") << escape(name.str())
+		<< _T("\", \"type\":\"") << escape(type.str());
 	if (parent) {
-		s << _T("\", \"parent\":\"") << parent.str();
+		s << _T("\", \"parent\":\"") << escape(parent.str());
 	}
 	s << _T("\"}");
 	return s.str();
@@ -281,10 +276,185 @@ string JsonWriter::WriteNode(const stringRef& id, const stringRef& name, const s
 string JsonWriter::WriteEdge(const stringRef& source, const stringRef& target,  const stringRef& code, const stringRef& type) const
 {
 	std::basic_ostringstream<_TCHAR> s;
-	s << _T("{\"source\":\"") << source.str()
-		<< _T("\", \"target\":\"") << target.str()
-		<< _T("\", \"code\":\"") << code.str()
-		<< _T("\", \"type\":\"") << type.str()
+	s << _T("{\"source\":\"") << escape(source.str())
+		<< _T("\", \"target\":\"") << escape(target.str())
+		<< _T("\", \"code\":\"") << escape(code.str())
+		<< _T("\", \"type\":\"") << escape(type.str())
 		<< _T("\"}");
 	return s.str();
+}
+
+void JsonWriter::CalculateMethodOverrides()
+{
+	for (auto& c: m_classes) {
+		for (auto& method: c.second.data.methods) {
+			if (!method.Virtual) continue;
+
+			std::vector<ClassConnection> connections;
+			for (auto& connection: c.second.connections) {
+				if (connection.type != DIRECT_INHERITANCE) continue;
+				connections.push_back(connection);
+			}
+			for (auto& connection: c.second.connections) {
+				if (connection.type != INDIRECT_INHERITANCE) continue;
+				connections.push_back(connection);
+			}
+
+			bool found = false;
+			for (auto& connection: connections) {
+				if (found) break;
+				const auto it = m_classes.find(connection.targetId);
+				if (it == m_classes.end()) continue;
+
+				for (auto& targetMethod: it->second.data.methods) {
+					if (!targetMethod.Virtual) continue;
+
+					if (targetMethod.name == method.name && targetMethod.Const == method.Const && targetMethod.params.size() == method.params.size()) {
+						c.second.methodOverrides.insert(std::map<string, string>::value_type(method.doxygenId, it->first));
+						found = true;
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+
+void JsonWriter::ProcessFileDef(const Element& fileDef)
+{
+	const stringRef location = fileDef.GetElement(_T("location")).GetAttribute(_T("file")).str();
+	for (auto& c: m_classes) {
+		for (auto& method: c.second.data.methods) {
+			if (method.locationFile != location.str()) continue;
+
+			bool started = false;
+			for (const auto& line: fileDef.GetElement(_T("programlisting")).Elements(_T("codeline"))) {
+				const stringRef lineNo = line.GetAttribute(_T("lineno"));
+				if (method.bodyEndLine == lineNo.str()) break;
+				if (!started) {
+					started = (method.bodyBeginLine == lineNo.str());
+					continue;
+				}
+
+				MemberUsage usage;
+				usage.sourceMethodId = method.doxygenId;
+				usage.connectionCode = string(location.str()) + _T("(") + lineNo.str() + _T("): ") + line.Text().str();
+
+				// remove all comments
+				string text;
+				for (const auto& item: line.Elements(_T("highlight"))) {
+					if (item.GetAttribute(_T("class")) != _T("comment")) {
+						text += item.Text().str();
+					}
+				}
+
+				// remove string literal constants
+				while(true) {
+					const std::size_t startPosition = text.find(_T('\"'));
+					if (startPosition == string::npos) break;
+
+					std::size_t endPosition = startPosition;
+					do {
+						endPosition = text.find(_T('\"'), endPosition + 1);
+					} while(endPosition != string::npos && text[endPosition-1] == _T('\\'));
+					if (endPosition == string::npos) break;
+					text.erase(startPosition, endPosition - startPosition);
+				}
+
+				// members
+				for (const auto& member: c.second.data.members) {
+					if (text.find(member.name) != string::npos) {
+						usage.targetId = member.name;
+						usage.type = MEMBER_ACCESS;
+						c.second.memberUsages.push_back(usage);
+					}
+				}
+
+				// methods
+				for (const auto& m: c.second.data.methods) {
+					if (method.Const && !m.Const) continue;
+
+					const std::basic_regex<_TCHAR> regex((string(_T(".*[^\\.>]\\s*(\\s|[^\\w\\.>])")) + m.name + _T("\\s*\\(.*")).c_str());
+					if (std::regex_match(text, regex)) {
+						usage.targetId = m.doxygenId;
+						usage.type = METHOD_CALL;
+						c.second.memberUsages.push_back(usage);
+					}
+				}
+
+			}
+
+
+		}
+	}
+}
+
+void JsonWriter::WriteSingleClassJsons()
+{
+	for (const auto& c: m_classes) {
+		std::basic_ofstream<_TCHAR> file(m_outputDir + _T("\\") + c.second.data.doxygenId + _T(".json"));
+		file << _T("{\"nodes\": [") << std::endl;
+		{
+			file << WriteNode(_T("class"), c.first, nullptr, _T("main"));
+			if (!c.second.parentId.empty()) {
+				file << _T(",") << std::endl;
+				file << WriteNode(c.second.parentId, c.second.parentId, nullptr, _T("parent"));
+			}
+			for (const auto& connection: c.second.connections) {
+				file << _T(",") << std::endl;
+				file << WriteNode(connection.targetId, connection.targetId, nullptr, _T("connection"));
+			}
+			for (const auto& method: c.second.data.methods) {
+				file << _T(",") << std::endl;
+				file << WriteNode(method.doxygenId, method.name, _T("class"), _T("method"));
+			}
+			for (const auto& member: c.second.data.members) {
+				file << _T(",") << std::endl;
+				file << WriteNode(member.name, member.name, _T("class"), _T("member"));
+			}
+		}
+
+		file << std::endl << _T("], \"edges\": [") << std::endl;
+		{
+			bool first = true;
+			for (const auto& method: c.second.methodOverrides) {
+				if (!first) {
+					file << _T(",") << std::endl;
+				}
+				file << WriteEdge(method.first, method.second, nullptr, _T("override"));
+				first = false;
+			}
+
+			for (const auto& usage: c.second.memberUsages) {
+				if (!first) {
+					file << _T(",") << std::endl;
+				}
+
+				const _TCHAR* type = nullptr;
+				switch(usage.type) {
+				case MEMBER_ACCESS: type = _T("access"); break;
+				case METHOD_CALL: type = _T("call"); break;
+				}
+				file << WriteEdge(usage.sourceMethodId, usage.targetId, usage.connectionCode, type);
+				first = false;
+			}
+
+			for (const auto& connection: c.second.connections) {
+				
+				if (!first) {
+					file << _T(",") << std::endl;
+				}
+
+				if (connection.type == MEMBER_ITEM) {
+					file << WriteEdge(connection.connectedMember, connection.targetId, connection.connectionCode, _T("member"));
+				} else {
+					file << WriteEdge(_T("class"), connection.targetId, connection.connectionCode, _T("inheritance"));
+				}
+				
+				first = false;
+			}
+		}
+		file << std::endl << _T("]}") << std::endl;
+		file.close();
+	}
 }

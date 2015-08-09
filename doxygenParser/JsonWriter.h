@@ -2,6 +2,7 @@
 #define JSON_WRITER_H__
 
 #include "types.h"
+#include "xml/structure.h"
 #include <vector>
 #include <map>
 #include <set>
@@ -33,6 +34,10 @@ struct Method {
 	};
 	std::vector<Param> params;
 	EProtectionLevel protectionLevel;
+
+	string locationFile;
+	string bodyBeginLine;
+	string bodyEndLine;
 };
 
 struct Class {
@@ -55,7 +60,10 @@ struct JsonWriter {
 
 	void Initialize(const std::vector<string>& namespaces, const std::vector<Class>& classes);
 
-	void Write();
+	void ProcessFileDef(const Element& fileDef);
+
+	void WriteClassesJson();
+	void WriteSingleClassJsons();
 
 private:
 	struct Namespace {
@@ -72,21 +80,36 @@ private:
 	struct ClassConnection {
 		string targetId;
 		string connectionCode;
+		string connectedMember;
 		EClassConnectionType type;
+	};
+
+	enum EMemberUsageType {
+		METHOD_CALL,
+		MEMBER_ACCESS
+	};
+
+	struct MemberUsage {
+		string sourceMethodId; //!< doxygenId of calling method
+		string connectionCode; //!< source line of usage
+		string targetId; //!< either doxygen method id or member name
+		EMemberUsageType type;
 	};
 
 	struct ClassEntry {
 		string name;
-		string doxygenId;
-		Class::EType type;
+		Class data;
 		string namespaceId;
 		string parentId;
 		std::vector<ClassConnection> connections;
+		std::vector<MemberUsage> memberUsages;
+		std::map<string, string> methodOverrides; //!< method doxygenId -> interface id
 	};
 
 private:
 	void CalculateNamespaces(const std::vector<string>& namespaces);
 	void CalculateClasses(const std::vector<Class>& classes);
+	void CalculateMethodOverrides();
 
 	static string GetLastId(const string& name);
 	static string GetWithoutLastId(const string& name);

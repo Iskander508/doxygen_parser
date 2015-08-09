@@ -46,7 +46,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 			using namespace rapidxml;
 			xml_document<_TCHAR> doc;
-			doc.parse<0>(fileContent.data());    // 0 means default parse flags
+			doc.parse<0>(fileContent.data());
 
 			Element doxygenNode = Element(doc.first_node(_T("doxygen")));
 			for (const auto& def : doxygenNode.Elements(_T("compounddef"))) {
@@ -111,6 +111,10 @@ int _tmain(int argc, _TCHAR* argv[])
 										p.type = param.GetElement(_T("type")).Text().str();
 										method.params.push_back(std::move(p));
 									}
+									const Element location = member.GetElement(_T("location"));
+									method.locationFile = location.GetAttribute(_T("bodyfile")).str();
+									method.bodyBeginLine = location.GetAttribute(_T("bodystart")).str();
+									method.bodyEndLine = location.GetAttribute(_T("bodyend")).str();
 									newClass.methods.push_back(std::move(method));
 								} else if (kind == _T("variable")) {
 									Member m;
@@ -129,7 +133,24 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		JsonWriter writer(argv[1]);
 		writer.Initialize(namespaces, classes);
-		writer.Write();
+
+		for (const auto& file : FileSystem::GetFiles(string(argv[1]), _T("xml"))) {
+			auto fileContent = readXMLFromFile(file.c_str());
+
+			using namespace rapidxml;
+			xml_document<_TCHAR> doc;
+			doc.parse<0>(fileContent.data());
+
+			Element doxygenNode = Element(doc.first_node(_T("doxygen")));
+			for (const auto& def : doxygenNode.Elements(_T("compounddef"))) {
+				if (def.GetAttribute(_T("language")) == _T("C++") && def.GetAttribute(_T("kind")) == _T("file")) {
+					writer.ProcessFileDef(def);
+				}
+			}
+		}
+
+		writer.WriteClassesJson();
+		writer.WriteSingleClassJsons();
 
 	}
 	return 0;
