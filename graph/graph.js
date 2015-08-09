@@ -223,8 +223,54 @@ var Graph = Graph || (function(){
 						cy.fit([], 80);
 					  }
 					});
+					
+					var mouseButtonDown = false;
+					cy.on('mousedown', function(event){
+							mouseButtonDown = true;
+						});
+					cy.on('mouseup', function(event){
+							mouseButtonDown = false;
+						});
+					
+					cy.on('mousemove', function(event){
+						var target = event ? event.cyTarget : undefined;
+						if (!target || !('isNode' in target) || !target.isNode() && !target.isEdge()) return;
+						if (mouseButtonDown) return;
+						
+						var sourceName = target.isNode() ? target.data("type") + "\n" + target.data("longName") : target.data("description");
+
+                        $("#box").qtip({
+                            content: {
+                                text: sourceName
+                            },
+                            show: {
+                                delay: 0,
+                                event: false,
+                                ready: true,
+                                effect:false
+                            },
+                            position: {
+                                my: 'bottom center',
+                                at: 'top center',
+                                target:[event.cyRenderedPosition.x,event.cyRenderedPosition.y - 25]
+                            },
+                            hide: {
+                                fixed: true,
+                                event: false,
+                                inactive: 2000
+                            },
+                            style: {
+                                classes: 'ui-tooltip-shadow ui-tooltip-youtube',
+                                tip: { corner: false }
+                            }
+						});
+					});
+					
+					
 				  }
 				});
+				
+				
         }
 	};
 
