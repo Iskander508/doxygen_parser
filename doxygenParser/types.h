@@ -18,6 +18,7 @@ struct stringRef {
 	stringRef(string&& that) : m_buffer(std::move(that)), m_str(m_buffer.c_str()), m_owner(true) {}
 
 	const _TCHAR* str() const { return m_str ? m_str : _T(""); }
+	std::size_t size() const { return m_str ? string(str()).size() : 0; }
 	operator bool() const { return m_str != nullptr && m_str[0] != _T('\0'); }
 	bool operator >(const _TCHAR* that) const { return string(str()) > string(that); }
 	bool operator >=(const _TCHAR* that) const { return string(str()) >= string(that); }

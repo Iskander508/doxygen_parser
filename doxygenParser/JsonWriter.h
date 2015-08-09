@@ -110,13 +110,14 @@ private:
 	void CalculateNamespaces(const std::vector<string>& namespaces);
 	void CalculateClasses(const std::vector<Class>& classes);
 	void CalculateMethodOverrides();
+	void ClearOrphanItems();
 
 	static string GetLastId(const string& name);
 	static string GetWithoutLastId(const string& name);
 
 	std::vector<ClassConnection> GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel) const;
-	string WriteNode(const stringRef& id, const stringRef& name, const stringRef& parent, const stringRef& type) const;
-	string WriteEdge(const stringRef& source, const stringRef& target,  const stringRef& code, const stringRef& type) const;
+	string WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent = nullptr, const stringRef& reference = nullptr) const;
+	string WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description = nullptr) const;
 
 private:
 	std::map<string, Namespace> m_namespaces; //!< id -> Namespace

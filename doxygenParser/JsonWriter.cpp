@@ -152,44 +152,58 @@ string JsonWriter::GetWithoutLastId(const string& name)
 	return string();
 }
 
-void JsonWriter::WriteClassesJson()
+void JsonWriter::ClearOrphanItems()
 {
-	// Clear orphan items
-	std::set<string> namespacesToBeCleared, classesToBeCleared;
-	for (const auto& n: m_namespaces) {
-		namespacesToBeCleared.insert(n.first);
-	}
-	for (const auto& c: m_classes) {
-		classesToBeCleared.insert(c.first);
-	}
-
-	for (const auto& c: m_classes) {
-		classesToBeCleared.erase(c.second.parentId);
-		for (const auto& connection: c.second.connections) {		
-			classesToBeCleared.erase(connection.targetId);
-		}
-	}
-	for (const auto& c: classesToBeCleared) {
-		m_classes.erase(c);
-	}
-	for (const auto& c: m_classes) {
-		namespacesToBeCleared.erase(c.second.namespaceId);
-	}
-
-	bool change;
+	bool erased;
 	do {
-		change = false;
-		for (const auto& n: m_namespaces) {
-			if (namespacesToBeCleared.find(n.first) == namespacesToBeCleared.end())	{
-				change = namespacesToBeCleared.erase(n.second.parentId) || change;
+		erased = false;
+		std::set<string> classesToBeCleared;
+		for (const auto& c: m_classes) {
+			classesToBeCleared.insert(c.first);
+		}
+
+		for (const auto& c: m_classes) {
+			classesToBeCleared.erase(c.second.parentId);
+			for (const auto& connection: c.second.connections) {		
+				classesToBeCleared.erase(connection.targetId);
+				classesToBeCleared.erase(c.first);
 			}
 		}
-	} while(change);
+		for (const auto& c: classesToBeCleared) {
+			erased = m_classes.erase(c) || erased;
+		}
+	} while (erased);
 
-	for (const auto& n: namespacesToBeCleared) {
-		m_namespaces.erase(n);
-	}
 
+	do {
+		erased = false;
+		std::set<string> namespacesToBeCleared;
+		for (const auto& n: m_namespaces) {
+			namespacesToBeCleared.insert(n.first);
+		}
+		for (const auto& c: m_classes) {
+			namespacesToBeCleared.erase(c.second.namespaceId);
+		}
+
+		bool change;
+		do {
+			change = false;
+			for (const auto& n: m_namespaces) {
+				if (namespacesToBeCleared.find(n.first) == namespacesToBeCleared.end())	{
+					change = namespacesToBeCleared.erase(n.second.parentId) || change;
+				}
+			}
+		} while(change);
+
+		for (const auto& n: namespacesToBeCleared) {
+			erased = m_namespaces.erase(n) || erased;
+		}
+	} while (erased);
+}
+
+void JsonWriter::WriteClassesJson()
+{
+	ClearOrphanItems();
 
 	std::basic_ofstream<_TCHAR> file(m_outputDir + _T("\\classes.json"));
 	file << _T("{\"nodes\": [") << std::endl;
@@ -199,7 +213,7 @@ void JsonWriter::WriteClassesJson()
 			if (!first) {
 				file << _T(",") << std::endl;
 			}
-			file << WriteNode(n.first, n.second.name, n.second.parentId, _T("namespace"));
+			file << WriteNode(n.first, n.second.name, n.first, _T("namespace"), n.second.parentId);
 			first = false;
 		}
 		for (const auto& c: m_classes) {
@@ -212,7 +226,7 @@ void JsonWriter::WriteClassesJson()
 			case Class::INTERFACE: type = _T("interface"); break;
 			case Class::CLASS: type = _T("class"); break;
 			}
-			file << WriteNode(c.first, c.second.name, c.second.namespaceId, type);			
+			file << WriteNode(c.first, c.second.name, c.first, type, c.second.namespaceId, c.second.data.doxygenId);			
 			first = false;
 		}
 	}
@@ -233,7 +247,7 @@ void JsonWriter::WriteClassesJson()
 				case MEMBER_ITEM: type = _T("member"); break;
 				}
 
-				file << WriteEdge(c.first, connection.targetId, connection.connectionCode, type);
+				file << WriteEdge(c.first, connection.targetId, type, connection.connectionCode);
 				first = false;
 			}
 
@@ -241,7 +255,7 @@ void JsonWriter::WriteClassesJson()
 				if (!first) {
 					file << _T(",") << std::endl;
 				}
-				file << WriteEdge(c.first, c.second.parentId, nullptr, _T("parent"));
+				file << WriteEdge(c.first, c.second.parentId, _T("parent"));
 				first = false;
 			}
 		}
@@ -250,37 +264,54 @@ void JsonWriter::WriteClassesJson()
 	file.close();
 }
 
-string escape(string s)
+string replaceAll(string s, const stringRef& pattern, const stringRef& newString)
 {
 	std::size_t start_pos = 0;
-    while((start_pos = s.find(_T("\""), start_pos)) != string::npos) {
-        s.replace(start_pos, 1, _T("\\\""));
-        start_pos += 2;
+	while((start_pos = s.find(pattern.str(), start_pos)) != string::npos) {
+		s.replace(start_pos, pattern.size(), newString.str());
+		start_pos += newString.size();
     }
     return s;
 }
 
-string JsonWriter::WriteNode(const stringRef& id, const stringRef& name, const stringRef& parent, const stringRef& type) const
+string escape(string s)
+{
+	string result = replaceAll(std::move(s), _T("\\"), _T("\\\\"));
+	result = replaceAll(std::move(result), _T("\""), _T("\\\""));
+	result = replaceAll(std::move(result), _T("\n"), _T("\\n"));
+	result = replaceAll(std::move(result), _T("\t"), _T("\\t"));
+    return result;
+}
+
+string JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent, const stringRef& reference) const
 {
 	std::basic_ostringstream<_TCHAR> s;
-	s << _T("{\"id\":\"") << escape(id.str())
-		<< _T("\", \"name\":\"") << escape(name.str())
+	s	<< _T("{\"id\":\"") << escape(id.str())
+		<< _T("\", \"shortName\":\"") << escape(shortName.str())
 		<< _T("\", \"type\":\"") << escape(type.str());
 	if (parent) {
 		s << _T("\", \"parent\":\"") << escape(parent.str());
+	}
+	if (longName) {
+		s << _T("\", \"longName\":\"") << escape(longName.str());
+	}
+	if (reference) {
+		s << _T("\", \"reference\":\"") << escape(reference.str());
 	}
 	s << _T("\"}");
 	return s.str();
 }
 
-string JsonWriter::WriteEdge(const stringRef& source, const stringRef& target,  const stringRef& code, const stringRef& type) const
+string JsonWriter::WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description) const
 {
 	std::basic_ostringstream<_TCHAR> s;
-	s << _T("{\"source\":\"") << escape(source.str())
+	s	<< _T("{\"source\":\"") << escape(source.str())
 		<< _T("\", \"target\":\"") << escape(target.str())
-		<< _T("\", \"code\":\"") << escape(code.str())
-		<< _T("\", \"type\":\"") << escape(type.str())
-		<< _T("\"}");
+		<< _T("\", \"type\":\"") << escape(type.str());
+	if (description) {
+		s << _T("\", \"description\":\"") << escape(description.str());
+	}
+	s << _T("\"}");
 	return s.str();
 }
 
@@ -330,10 +361,11 @@ void JsonWriter::ProcessFileDef(const Element& fileDef)
 			bool started = false;
 			for (const auto& line: fileDef.GetElement(_T("programlisting")).Elements(_T("codeline"))) {
 				const stringRef lineNo = line.GetAttribute(_T("lineno"));
-				if (method.bodyEndLine == lineNo.str()) break;
+				bool firstLine = false;
 				if (!started) {
 					started = (method.bodyBeginLine == lineNo.str());
-					continue;
+					if (!started) continue;
+					firstLine = true;
 				}
 
 				MemberUsage usage;
@@ -361,6 +393,17 @@ void JsonWriter::ProcessFileDef(const Element& fileDef)
 					text.erase(startPosition, endPosition - startPosition);
 				}
 
+				// start from { if on first line
+				if (firstLine) {
+					const std::size_t startPosition = text.find(_T('{'));
+					if (startPosition != string::npos) {
+						text.erase(0, startPosition);
+					} else {
+						text.clear();
+					}
+				}
+				
+
 				// members
 				for (const auto& member: c.second.data.members) {
 					if (text.find(member.name) != string::npos) {
@@ -382,11 +425,21 @@ void JsonWriter::ProcessFileDef(const Element& fileDef)
 					}
 				}
 
+				if (method.bodyEndLine == lineNo.str()) break;
 			}
-
-
 		}
 	}
+}
+
+const _TCHAR* GetProtectionLevel(EProtectionLevel level) {
+	const _TCHAR* type = nullptr;
+	switch(level) {
+	case PRIVATE: type = _T("private"); break;
+	case PUBLIC: type = _T("public"); break;
+	case PROTECTED: type = _T("protected"); break;
+	case PACKAGE: type = _T("package"); break;
+	}
+	return type;
 }
 
 void JsonWriter::WriteSingleClassJsons()
@@ -395,22 +448,41 @@ void JsonWriter::WriteSingleClassJsons()
 		std::basic_ofstream<_TCHAR> file(m_outputDir + _T("\\") + c.second.data.doxygenId + _T(".json"));
 		file << _T("{\"nodes\": [") << std::endl;
 		{
-			file << WriteNode(_T("class"), c.first, nullptr, _T("main"));
+			file << WriteNode(_T("class"), c.first, c.first, _T("main"));
 			if (!c.second.parentId.empty()) {
 				file << _T(",") << std::endl;
-				file << WriteNode(c.second.parentId, c.second.parentId, nullptr, _T("parent"));
+				file << WriteNode(c.second.parentId, m_classes[c.second.parentId].name, c.second.parentId, _T("parent"), nullptr, m_classes[c.second.parentId].data.doxygenId);
 			}
 			for (const auto& connection: c.second.connections) {
 				file << _T(",") << std::endl;
-				file << WriteNode(connection.targetId, connection.targetId, nullptr, _T("connection"));
+				file << WriteNode(connection.targetId, m_classes[connection.targetId].name, connection.targetId, _T("connection"), nullptr, m_classes[connection.targetId].data.doxygenId);
 			}
 			for (const auto& method: c.second.data.methods) {
 				file << _T(",") << std::endl;
-				file << WriteNode(method.doxygenId, method.name, _T("class"), _T("method"));
+				std::basic_ostringstream<_TCHAR> longName; 
+				longName << string(GetProtectionLevel(method.protectionLevel)) << _T(" ")
+					<< (method.Virtual ? _T("virtual ") : _T(""))
+					<< (method.returnType.empty() ? _T("") : method.returnType + _T(" "))
+					<< method.name << _T("(");
+				bool firstParam = true;
+				for (const auto& param: method.params) {
+					if (!firstParam) {
+						longName << _T(", ");
+					}
+					firstParam = false;
+					longName << param.type << _T(" ") << param.name;
+				}
+				longName << _T(")");
+				if (method.Const) longName << _T(" const");
+				
+				file << WriteNode(method.doxygenId, method.name, longName.str(), _T("method"), _T("class"));
 			}
 			for (const auto& member: c.second.data.members) {
 				file << _T(",") << std::endl;
-				file << WriteNode(member.name, member.name, _T("class"), _T("member"));
+				std::basic_ostringstream<_TCHAR> longName;
+				longName << string(GetProtectionLevel(member.protectionLevel)) << _T(" ")
+					<< member.type << _T(" ") << member.name;
+				file << WriteNode(member.name, member.name, longName.str(), _T("member"), _T("class"));
 			}
 		}
 
@@ -421,7 +493,7 @@ void JsonWriter::WriteSingleClassJsons()
 				if (!first) {
 					file << _T(",") << std::endl;
 				}
-				file << WriteEdge(method.first, method.second, nullptr, _T("override"));
+				file << WriteEdge(method.first, method.second, _T("override"));
 				first = false;
 			}
 
@@ -435,7 +507,7 @@ void JsonWriter::WriteSingleClassJsons()
 				case MEMBER_ACCESS: type = _T("access"); break;
 				case METHOD_CALL: type = _T("call"); break;
 				}
-				file << WriteEdge(usage.sourceMethodId, usage.targetId, usage.connectionCode, type);
+				file << WriteEdge(usage.sourceMethodId, usage.targetId, type, usage.connectionCode);
 				first = false;
 			}
 
@@ -446,15 +518,15 @@ void JsonWriter::WriteSingleClassJsons()
 				}
 
 				if (connection.type == MEMBER_ITEM) {
-					file << WriteEdge(connection.connectedMember, connection.targetId, connection.connectionCode, _T("member"));
+					file << WriteEdge(connection.connectedMember, connection.targetId, _T("member"), connection.connectionCode);
 				} else {
-					file << WriteEdge(_T("class"), connection.targetId, connection.connectionCode, _T("inheritance"));
+					file << WriteEdge(_T("class"), connection.targetId, _T("inherits"), connection.connectionCode);
 				}
 				
 				first = false;
 			}
 		}
-		file << std::endl << _T("]}") << std::endl;
+		file << std::endl << _T("], \"class\":\"") << escape(c.first) << _T("\"}") << std::endl;
 		file.close();
 	}
 }
