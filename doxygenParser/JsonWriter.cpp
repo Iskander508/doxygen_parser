@@ -264,16 +264,6 @@ void JsonWriter::WriteClassesJson()
 	file.close();
 }
 
-string replaceAll(string s, const stringRef& pattern, const stringRef& newString)
-{
-	std::size_t start_pos = 0;
-	while((start_pos = s.find(pattern.str(), start_pos)) != string::npos) {
-		s.replace(start_pos, pattern.size(), newString.str());
-		start_pos += newString.size();
-    }
-    return s;
-}
-
 string escape(string s)
 {
 	string result = replaceAll(std::move(s), _T("\\"), _T("\\\\"));
@@ -370,7 +360,7 @@ void JsonWriter::ProcessFileDef(const Element& fileDef)
 
 				MemberUsage usage;
 				usage.sourceMethodId = method.doxygenId;
-				usage.connectionCode = string(location.str()) + _T("(") + lineNo.str() + _T("): ") + line.Text().str();
+				usage.connectionCode = string(location.str()) + _T("(") + lineNo.str() + _T("): ") + trim(line.Text().str());
 
 				// remove all comments
 				string text;

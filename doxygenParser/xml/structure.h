@@ -5,13 +5,36 @@
 #include <vector>
 #include <map>
 #include "types.h"
+#include <cctype>
+#include <string>
+#include <algorithm>
+
+inline string trim(const string &s)
+{
+   auto wsfront=std::find_if_not(s.begin(),s.end(),[](int c){return std::isspace(c);});
+   auto wsback=std::find_if_not(s.rbegin(),s.rend(),[](int c){return std::isspace(c);}).base();
+   return (wsback<=wsfront ? string() : string(wsfront,wsback));
+}
+
+inline string replaceAll(string s, const stringRef& pattern, const stringRef& newString)
+{
+	std::size_t start_pos = 0;
+	while((start_pos = s.find(pattern.str(), start_pos)) != string::npos) {
+		s.replace(start_pos, pattern.size(), newString.str());
+		start_pos += newString.size();
+    }
+    return s;
+}
 
 inline std::vector<_TCHAR> readXMLFromFile(const _TCHAR* filename) {
 	std::basic_ifstream<_TCHAR> readFile(filename);
 	if (readFile.is_open()) {
-		std::basic_string<_TCHAR> fileContent((std::istreambuf_iterator<_TCHAR>(readFile)),
+		string fileContent((std::istreambuf_iterator<_TCHAR>(readFile)),
                  std::istreambuf_iterator<_TCHAR>());
 		readFile.close();
+
+		// replace all <sp/> tags with spaces
+		fileContent = replaceAll(fileContent, _T("<sp/>"), _T(" "));
 
 		std::vector<_TCHAR> result(fileContent.begin(), fileContent.end());
 		result.push_back(_T('\0'));
@@ -20,7 +43,6 @@ inline std::vector<_TCHAR> readXMLFromFile(const _TCHAR* filename) {
 
 	return std::vector<_TCHAR>();
 }
-
 
 class Element {
 public:
