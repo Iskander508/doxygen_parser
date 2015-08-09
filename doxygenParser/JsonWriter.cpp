@@ -273,7 +273,7 @@ string escape(string s)
     return result;
 }
 
-string JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent, const stringRef& reference) const
+string JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent, const stringRef& reference, const std::vector<string>& classes) const
 {
 	std::basic_ostringstream<_TCHAR> s;
 	s	<< _T("{\"id\":\"") << escape(id.str())
@@ -288,7 +288,18 @@ string JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, co
 	if (reference) {
 		s << _T("\", \"reference\":\"") << escape(reference.str());
 	}
-	s << _T("\"}");
+	if (!classes.empty()) {
+		s << _T("\", \"classes\":[");
+		bool first = true;
+		for (const auto& c : classes) {
+			if (!first) {
+				s << _T(",");
+			}
+			first = false;
+			s << _T("\"") << escape(c) << _T("\"");
+		}
+		s << _T("]}");
+	} else s << _T("\"}");
 	return s.str();
 }
 
@@ -465,14 +476,27 @@ void JsonWriter::WriteSingleClassJsons()
 				longName << _T(")");
 				if (method.Const) longName << _T(" const");
 				
-				file << WriteNode(method.doxygenId, method.name, longName.str(), _T("method"), _T("class"));
+				std::vector<string> classes;
+				classes.push_back(string(GetProtectionLevel(method.protectionLevel)));
+				if (method.name == c.second.name) {
+					classes.push_back(_T("constructor"));
+				} else if (method.name[0] == _T('~')) {
+					classes.push_back(_T("destructor"));
+				} else if (method.name.find(_T("operator")) != string::npos) {
+					classes.push_back(_T("operator"));
+				}
+
+				file << WriteNode(method.doxygenId, method.name, longName.str(), _T("method"), _T("class"), nullptr, classes);
 			}
 			for (const auto& member: c.second.data.members) {
 				file << _T(",") << std::endl;
 				std::basic_ostringstream<_TCHAR> longName;
 				longName << string(GetProtectionLevel(member.protectionLevel)) << _T(" ")
 					<< member.type << _T(" ") << member.name;
-				file << WriteNode(member.name, member.name, longName.str(), _T("member"), _T("class"));
+
+				std::vector<string> classes;
+				classes.push_back(string(GetProtectionLevel(member.protectionLevel)));
+				file << WriteNode(member.name, member.name, longName.str(), _T("member"), _T("class"), nullptr, classes);
 			}
 		}
 

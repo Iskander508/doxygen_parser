@@ -14,13 +14,25 @@ var Graph = Graph || (function(){
 					longName: nodes[i].longName,
 					type: nodes[i].type
 				};
-				if(nodes[i].hasOwnProperty('parent')){
+				if (nodes[i].hasOwnProperty('parent')){
 					newNode.parent = nodes[i].parent;
 				}
-				if(nodes[i].hasOwnProperty('reference')){
+				if (nodes[i].hasOwnProperty('reference')){
 					newNode.reference = nodes[i].reference;
 				}
-				elems.nodes.push({data: newNode, classes: nodes[i].type});
+				var nodeClasses = nodes[i].type;
+				if (nodes[i].hasOwnProperty('classes')) {
+					for(var c in nodes[i].classes) {
+						if (nodes[i].classes[c] == 'constructor'
+							|| nodes[i].classes[c] == 'destructor'
+							|| nodes[i].classes[c] == 'operator') {
+							nodeClasses += " operational";
+						} else {
+							nodeClasses += " " + nodes[i].classes[c];
+						}
+					}
+				}
+				elems.nodes.push({data: newNode, classes: nodeClasses});
 			}
 			
 			var edges = data.edges;
@@ -62,7 +74,7 @@ var Graph = Graph || (function(){
 					  .css({
 						'shape': 'rectangle',
 						'width': function(ele){
-							var enlargementRatio = ele.hasClass('selected') ? 9 : 7;
+							var enlargementRatio = ele.hasClass('selected') ? 9 : 8;
 							var text = ele.hasClass('selected') ? 'longName' : 'shortName';
 							return 35+enlargementRatio*(ele.data(text).length);
 							},
@@ -88,9 +100,9 @@ var Graph = Graph || (function(){
 					  .css({
 						'background-color': '#D5D40D'
 					  })
-					.selector('node.struct')
+					.selector('node.struct,node.member')
 					  .css({
-						'background-color': '#0554DD'
+						'background-color': '#3584EE'
 					  })
 					.selector('node.interface,node.connection')
 					  .css({
@@ -100,9 +112,17 @@ var Graph = Graph || (function(){
 					  .css({
 						'background-color': '#D5D40D'
 					  })
-					.selector('node.member')
+					.selector('node.operational')
 					  .css({
-						'background-color': '#0544DD'
+						'background-color': '#B5B40D'
+					  })
+					.selector('node.protected')
+					  .css({
+						'shape': 'roundrectangle'
+					  })
+					.selector('node.private')
+					  .css({
+						'shape': 'octagon'
 					  })
 					.selector('edge')
 					  .css({
