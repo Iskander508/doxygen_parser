@@ -85,7 +85,7 @@ var Graph = Graph || (function(){
 						'border-width': 1,
 						'border-color': '#000'
 					  })
-					.selector('node.namespace,node.main')
+					.selector('node.namespace,node.object')
 					  .css({
 						'background-color': '#cccccc',
 						'text-valign': 'top',
@@ -114,7 +114,7 @@ var Graph = Graph || (function(){
 					  })
 					.selector('node.operational')
 					  .css({
-						'background-color': '#B5B40D'
+						'background-color': '#E5E46D'
 					  })
 					.selector('node.protected')
 					  .css({

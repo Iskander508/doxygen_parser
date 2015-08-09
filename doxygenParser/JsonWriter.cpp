@@ -371,7 +371,7 @@ void JsonWriter::ProcessFileDef(const Element& fileDef)
 
 				MemberUsage usage;
 				usage.sourceMethodId = method.doxygenId;
-				usage.connectionCode = string(location.str()) + _T("(") + lineNo.str() + _T("): ") + trim(line.Text().str());
+				usage.connectionCode = string(location.str()) + _T("(") + lineNo.str() + _T("):\n") + trim(line.Text().str());
 
 				// remove all comments
 				string text;
@@ -448,8 +448,9 @@ void JsonWriter::WriteSingleClassJsons()
 	for (const auto& c: m_classes) {
 		std::basic_ofstream<_TCHAR> file(m_outputDir + _T("\\") + c.second.data.doxygenId + _T(".json"));
 		file << _T("{\"nodes\": [") << std::endl;
+		std::set<string> collaborators;
 		{
-			file << WriteNode(_T("class"), c.first, c.first, _T("main"));
+			file << WriteNode(_T("class"), c.first, c.first, _T("object"));
 			if (!c.second.parentId.empty()) {
 				file << _T(",") << std::endl;
 				file << WriteNode(c.second.parentId, m_classes[c.second.parentId].name, c.second.parentId, _T("parent"), nullptr, m_classes[c.second.parentId].data.doxygenId);
@@ -498,11 +499,32 @@ void JsonWriter::WriteSingleClassJsons()
 				classes.push_back(string(GetProtectionLevel(member.protectionLevel)));
 				file << WriteNode(member.name, member.name, longName.str(), _T("member"), _T("class"), nullptr, classes);
 			}
+
+			// connections from other classes
+			for (const auto& other: m_classes) {
+				if (other.second.parentId == c.first) {
+					collaborators.insert(other.first);
+				}
+				for (const auto& connection: other.second.connections) {
+					if (connection.targetId == c.first)	{
+						collaborators.insert(other.first);
+					}
+				}
+			}
+			for (const auto& collaborator: collaborators) {
+				file << _T(",") << std::endl;
+				file << WriteNode(collaborator, m_classes[collaborator].name, collaborator, _T("collaborator"), nullptr, m_classes[collaborator].data.doxygenId);
+			}
 		}
 
 		file << std::endl << _T("], \"edges\": [") << std::endl;
 		{
 			bool first = true;
+			if (!c.second.parentId.empty()) {
+				first = false;
+				file << WriteEdge(_T("class"), c.second.parentId, _T("parent"));
+			}
+
 			for (const auto& method: c.second.methodOverrides) {
 				if (!first) {
 					file << _T(",") << std::endl;
@@ -538,6 +560,31 @@ void JsonWriter::WriteSingleClassJsons()
 				}
 				
 				first = false;
+			}
+
+			for (const auto& collaborator: collaborators) {
+				if (m_classes[collaborator].parentId == c.first) {
+					if (!first) {
+						file << _T(",") << std::endl;
+					}
+					file << WriteEdge(collaborator, _T("class"), _T("parent"));
+					first = false;
+				}
+				for (const auto& connection: m_classes[collaborator].connections) {
+					if (connection.targetId == c.first)	{
+						if (!first) {
+							file << _T(",") << std::endl;
+						}
+
+						if (connection.type == MEMBER_ITEM) {
+							file << WriteEdge(collaborator, _T("class"), _T("member"), connection.connectionCode);
+						} else {
+							file << WriteEdge(collaborator, _T("class"), _T("inherits"), connection.connectionCode);
+						}
+
+						first = false;
+					}
+				}
 			}
 		}
 		file << std::endl << _T("], \"class\":\"") << escape(c.first) << _T("\"}") << std::endl;

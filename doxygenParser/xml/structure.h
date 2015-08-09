@@ -8,6 +8,8 @@
 #include <cctype>
 #include <string>
 #include <algorithm>
+#include <iostream>
+
 
 inline string trim(const string &s)
 {
@@ -32,9 +34,6 @@ inline std::vector<_TCHAR> readXMLFromFile(const _TCHAR* filename) {
 		string fileContent((std::istreambuf_iterator<_TCHAR>(readFile)),
                  std::istreambuf_iterator<_TCHAR>());
 		readFile.close();
-
-		// replace all <sp/> tags with spaces
-		fileContent = replaceAll(fileContent, _T("<sp/>"), _T(" "));
 
 		std::vector<_TCHAR> result(fileContent.begin(), fileContent.end());
 		result.push_back(_T('\0'));
@@ -67,6 +66,11 @@ public:
 	stringRef Text(bool recursive = true) const {
 		const stringRef firstNodeText = m_node ? stringRef(m_node->value()) : stringRef();
 		if (!recursive)	return firstNodeText;
+
+		// replace all <sp/> tags with spaces
+		if (Name() == _T("sp"))	{
+			return _T(" ");
+		}
 
 		string result(firstNodeText.str());
 		bool firstSubNode = true;
