@@ -130,6 +130,7 @@ var Graph = Graph || (function(){
 						'color': '#FFFFFF',
 						'target-arrow-shape': 'triangle',
 						'text-background-opacity': 1,
+						'text-background-shape': 'roundrectangle',
 						'edge-text-rotation': 'autorotate',
 						'width': 2
 					  })
