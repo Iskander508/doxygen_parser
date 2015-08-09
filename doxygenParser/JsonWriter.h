@@ -86,7 +86,8 @@ private:
 
 	enum EMemberUsageType {
 		METHOD_CALL,
-		MEMBER_ACCESS
+		MEMBER_ACCESS,
+		CLASS_USAGE
 	};
 
 	struct MemberUsage {

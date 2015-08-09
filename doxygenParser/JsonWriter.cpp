@@ -356,6 +356,23 @@ void JsonWriter::ProcessFileDef(const Element& fileDef)
 {
 	const stringRef location = fileDef.GetElement(_T("location")).GetAttribute(_T("file")).str();
 	for (auto& c: m_classes) {
+
+		std::map<string, string> usableClasses; // search string -> class id
+		for (auto& cl: m_classes) {
+			if (cl.first == c.first) continue;
+			if (cl.second.namespaceId == c.second.namespaceId) {
+				usableClasses.insert(std::map<string, string>::value_type(cl.second.name, cl.first));
+			} else {
+				string otherId = cl.first;
+				for (const auto& part: split(c.first, _T("::"))) {
+					if (otherId.substr(0, part.size() + 2) == (part + _T("::"))) {
+						otherId = otherId.substr(part.size() + 2);
+					} else break;
+				}
+				usableClasses.insert(std::map<string, string>::value_type(otherId, cl.first));
+			}
+		}
+
 		for (auto& method: c.second.data.methods) {
 			if (method.locationFile != location.str()) continue;
 
@@ -391,7 +408,7 @@ void JsonWriter::ProcessFileDef(const Element& fileDef)
 						endPosition = text.find(_T('\"'), endPosition + 1);
 					} while(endPosition != string::npos && text[endPosition-1] == _T('\\'));
 					if (endPosition == string::npos) break;
-					text.erase(startPosition, endPosition - startPosition);
+					text.erase(startPosition, endPosition - startPosition + 1);
 				}
 
 				// start from { if on first line
@@ -407,7 +424,8 @@ void JsonWriter::ProcessFileDef(const Element& fileDef)
 
 				// members
 				for (const auto& member: c.second.data.members) {
-					if (text.find(member.name) != string::npos) {
+					const std::basic_regex<_TCHAR> regex((string(_T(".*[^\\.>]\\s*(\\s|[^\\w\\.>])")) + member.name + _T("[^\\w].*")).c_str());
+					if (std::regex_match(text, regex)) {
 						usage.targetId = member.name;
 						usage.type = MEMBER_ACCESS;
 						c.second.memberUsages.push_back(usage);
@@ -422,6 +440,16 @@ void JsonWriter::ProcessFileDef(const Element& fileDef)
 					if (std::regex_match(text, regex)) {
 						usage.targetId = m.doxygenId;
 						usage.type = METHOD_CALL;
+						c.second.memberUsages.push_back(usage);
+					}
+				}
+
+				// other classes usages
+				for (const auto& usable: usableClasses) {
+					const std::basic_regex<_TCHAR> regex((string(_T(".*[^\\.>]\\s*(\\s|[^\\w\\.>])")) + usable.first + _T("[^\\w:].*")).c_str());
+					if (std::regex_match(text, regex)) {
+						usage.targetId = usable.second;
+						usage.type = CLASS_USAGE;
 						c.second.memberUsages.push_back(usage);
 					}
 				}
@@ -511,6 +539,10 @@ void JsonWriter::WriteSingleClassJsons()
 					}
 				}
 			}
+			for (const auto& usage: c.second.memberUsages) {
+				if (usage.type != CLASS_USAGE || m_classes.find(usage.targetId) == m_classes.end()) continue;
+				collaborators.insert(usage.targetId);
+			}
 			for (const auto& collaborator: collaborators) {
 				file << _T(",") << std::endl;
 				file << WriteNode(collaborator, m_classes[collaborator].name, collaborator, _T("collaborator"), nullptr, m_classes[collaborator].data.doxygenId);
@@ -534,6 +566,8 @@ void JsonWriter::WriteSingleClassJsons()
 			}
 
 			for (const auto& usage: c.second.memberUsages) {
+				if (usage.type == CLASS_USAGE && m_classes.find(usage.targetId) == m_classes.end()) continue;
+
 				if (!first) {
 					file << _T(",") << std::endl;
 				}
@@ -542,6 +576,7 @@ void JsonWriter::WriteSingleClassJsons()
 				switch(usage.type) {
 				case MEMBER_ACCESS: type = _T("access"); break;
 				case METHOD_CALL: type = _T("call"); break;
+				case CLASS_USAGE: type = _T("use"); break;
 				}
 				file << WriteEdge(usage.sourceMethodId, usage.targetId, type, usage.connectionCode);
 				first = false;

@@ -128,6 +128,7 @@ var Graph = Graph || (function(){
 					  .css({
 						'content': 'data(type)',
 						'color': '#FFFFFF',
+						'target-arrow-shape': 'triangle',
 						'text-background-opacity': 1,
 						'edge-text-rotation': 'autorotate',
 						'width': 2
@@ -143,29 +144,31 @@ var Graph = Graph || (function(){
 					  .css({
 						'line-color': '#F5A45D',
 						'text-background-color': '#F5A45D',
-						'target-arrow-shape': 'triangle',
 						'target-arrow-color': '#F5A45D'
 					  })
 					.selector('edge.derives,edge.override')
 					  .css({
 						'line-color': '#A5A40D',
 						'text-background-color': '#A5A40D',
-						'target-arrow-shape': 'triangle',
 						'target-arrow-color': '#A5A40D'
 					  })
 					.selector('edge.parent,edge.call')
 					  .css({
 						'line-color': '#A5040D',
 						'text-background-color': '#A5040D',
-						'target-arrow-shape': 'triangle',
 						'target-arrow-color': '#A5040D'
 					  })
 					.selector('edge.access')
 					  .css({
 						'line-color': '#05A4DD',
 						'text-background-color': '#05A4DD',
-						'target-arrow-shape': 'triangle',
 						'target-arrow-color': '#05A4DD'
+					  })
+					.selector('edge.use')
+					  .css({
+						'line-color': '#777777',
+						'text-background-color': '#777777',
+						'target-arrow-color': '#777777'
 					  })
 					.selector('.faded')
 					  .css({
