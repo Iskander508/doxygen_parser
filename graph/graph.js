@@ -162,7 +162,7 @@ var Graph = Graph || (function(){
 						'text-background-color': '#A5A40D',
 						'target-arrow-color': '#A5A40D'
 					  })
-                    .selector('edge.indirect')
+                    .selector('edge.indirect,edge.uncertain')
 					  .css({
 						'line-style': 'dashed'
 					  })

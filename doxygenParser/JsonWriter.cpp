@@ -460,6 +460,12 @@ void JsonWriter::ProcessFileDef(const Element& fileDef)
 					if (std::regex_match(text, regex)) {
 						usage.targetId = m.doxygenId;
 						usage.type = METHOD_CALL;
+						for (const auto& o: c.second.data.methods) {
+							if (o != m && o.name == m.name) {
+								usage.certain = false;
+								break;
+							}
+						}
 						std::lock_guard<std::mutex> guard(m_lock);
 						c.second.memberUsages.push_back(usage);
 					}
@@ -621,7 +627,12 @@ void JsonWriter::WriteSingleClassJson(const stringRef& id) const
 			case METHOD_CALL: type = _T("call"); break;
 			case CLASS_USAGE: type = _T("use"); break;
 			}
-			file << WriteEdge(usage.sourceMethodId, usage.targetId, type, usage.connectionCode);
+
+			std::vector<string> classes;
+			if (!usage.certain) {
+				classes.push_back(_T("uncertain"));
+			}
+			file << WriteEdge(usage.sourceMethodId, usage.targetId, type, usage.connectionCode, classes);
 			first = false;
 		}
 

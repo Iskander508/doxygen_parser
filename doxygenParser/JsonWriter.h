@@ -39,6 +39,9 @@ struct Method {
 	string locationFile;
 	string bodyBeginLine;
 	string bodyEndLine;
+
+	bool operator==(const Method& that) const { return doxygenId == that.doxygenId; }
+	bool operator!=(const Method& that) const { return !operator==(that); }
 };
 
 struct Class {
@@ -97,6 +100,9 @@ private:
 		string connectionCode; //!< source line of usage
 		string targetId; //!< either doxygen method id or member name
 		EMemberUsageType type;
+		bool certain; //!< whether the access is evident from the code
+
+		MemberUsage() : certain(true) {}
 	};
 
 	struct ClassEntry {
