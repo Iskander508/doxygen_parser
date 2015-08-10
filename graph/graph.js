@@ -43,7 +43,13 @@ var Graph = Graph || (function(){
 					type: edges[i].type,
 					description: edges[i].description
 				};
-				elems.edges.push({data: newEdge, classes: edges[i].type});
+                var edgeClasses = edges[i].type;
+                if (edges[i].hasOwnProperty('classes')) {
+					for(var c in edges[i].classes) {
+                        edgeClasses += " " + edges[i].classes[c];
+					}
+				}
+				elems.edges.push({data: newEdge, classes: edgeClasses});
 			}
 		
 		
@@ -83,7 +89,8 @@ var Graph = Graph || (function(){
 						'text-valign': 'center',
 						'color': '#000',
 						'border-width': 1,
-						'border-color': '#000'
+						'border-color': '#000',
+                        'z-index': 3
 					  })
 					.selector('node.namespace,node.object')
 					  .css({
@@ -132,26 +139,32 @@ var Graph = Graph || (function(){
 						'text-background-opacity': 1,
 						'text-background-shape': 'roundrectangle',
 						'edge-text-rotation': 'autorotate',
-						'width': 2
+						'width': 2,
+                        'z-index': 2
 					  })
 					.selector('edge.member')
 					  .css({
 						'line-color': '#EDA1ED',
 						'text-background-color': '#EDA1ED',
+                        'target-arrow-shape': 'none',
 						'source-arrow-shape': 'diamond',
 						'source-arrow-color': '#EDA1ED'
 					  })
-					.selector('edge.inherits')
+					.selector('edge.override')
 					  .css({
 						'line-color': '#F5A45D',
 						'text-background-color': '#F5A45D',
 						'target-arrow-color': '#F5A45D'
 					  })
-					.selector('edge.derives,edge.override')
+					.selector('edge.derives')
 					  .css({
 						'line-color': '#A5A40D',
 						'text-background-color': '#A5A40D',
 						'target-arrow-color': '#A5A40D'
+					  })
+                    .selector('edge.indirect')
+					  .css({
+						'line-style': 'dashed'
 					  })
 					.selector('edge.parent,edge.call')
 					  .css({
@@ -173,6 +186,7 @@ var Graph = Graph || (function(){
 					  })
 					.selector('.faded')
 					  .css({
+                        'z-index': 1,
 						'opacity': 0.4
 					  })
 					.selector('.faded:parent')
@@ -181,6 +195,7 @@ var Graph = Graph || (function(){
 					  })
 					.selector('.selected')
 					  .css({
+                        'z-index': function( ele ){ return ele.isNode() && !ele.isParent() ? 4 : 0 },
 						'font-weight': 'bold',
 						'border-width': 3
 					  })

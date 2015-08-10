@@ -240,14 +240,22 @@ void JsonWriter::WriteClassesJson()
 					file << _T(",") << std::endl;
 				}
 
+
 				const _TCHAR* type = nullptr;
-				switch(connection.type) {
-				case DIRECT_INHERITANCE: type = _T("inherits"); break;
-				case INDIRECT_INHERITANCE: type = _T("derives"); break;
+				switch (connection.type)
+				{
 				case MEMBER_ITEM: type = _T("member"); break;
+				default: type = _T("derives"); break;
 				}
 
-				file << WriteEdge(c.first, connection.targetId, type, connection.connectionCode);
+				std::vector<string> classes;
+				switch (connection.type)
+				{
+				case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
+				case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
+				}
+
+				file << WriteEdge(c.first, connection.targetId, type, connection.connectionCode, classes);
 				first = false;
 			}
 
@@ -303,7 +311,7 @@ string JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, co
 	return s.str();
 }
 
-string JsonWriter::WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description) const
+string JsonWriter::WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description, const std::vector<string>& classes) const
 {
 	std::basic_ostringstream<_TCHAR> s;
 	s	<< _T("{\"source\":\"") << escape(source.str())
@@ -312,7 +320,18 @@ string JsonWriter::WriteEdge(const stringRef& source, const stringRef& target, c
 	if (description) {
 		s << _T("\", \"description\":\"") << escape(description.str());
 	}
-	s << _T("\"}");
+	if (!classes.empty()) {
+		s << _T("\", \"classes\":[");
+		bool first = true;
+		for (const auto& c : classes) {
+			if (!first) {
+				s << _T(",");
+			}
+			first = false;
+			s << _T("\"") << escape(c) << _T("\"");
+		}
+		s << _T("]}");
+	} else s << _T("\"}");
 	return s.str();
 }
 
@@ -601,7 +620,13 @@ void JsonWriter::WriteSingleClassJson(const stringRef& id) const
 			if (connection.type == MEMBER_ITEM) {
 				file << WriteEdge(connection.connectedMember, connection.targetId, _T("member"), connection.connectionCode);
 			} else {
-				file << WriteEdge(_T("class"), connection.targetId, _T("inherits"), connection.connectionCode);
+				std::vector<string> classes;
+				switch (connection.type)
+				{
+				case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
+				case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
+				}
+				file << WriteEdge(_T("class"), connection.targetId, _T("derives"), connection.connectionCode, classes);
 			}
 
 			first = false;
@@ -621,12 +646,21 @@ void JsonWriter::WriteSingleClassJson(const stringRef& id) const
 						file << _T(",") << std::endl;
 					}
 
-					if (connection.type == MEMBER_ITEM) {
-						file << WriteEdge(collaborator, _T("class"), _T("member"), connection.connectionCode);
-					} else {
-						file << WriteEdge(collaborator, _T("class"), _T("inherits"), connection.connectionCode);
+					const _TCHAR* type = nullptr;
+					switch (connection.type)
+					{
+					case MEMBER_ITEM: type = _T("member"); break;
+					default: type = _T("derives"); break;
 					}
-
+				
+					std::vector<string> classes;
+					switch (connection.type)
+					{
+					case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
+					case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
+					}
+					
+					file << WriteEdge(collaborator, _T("class"), type, connection.connectionCode, classes);
 					first = false;
 				}
 			}

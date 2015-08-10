@@ -120,7 +120,7 @@ private:
 
 	std::vector<ClassConnection> GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel) const;
 	string WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent = nullptr, const stringRef& reference = nullptr, const std::vector<string>& classes = std::vector<string>()) const;
-	string WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description = nullptr) const;
+	string WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description = nullptr, const std::vector<string>& classes = std::vector<string>()) const;
 
 private:
 	std::map<string, Namespace> m_namespaces; //!< id -> Namespace
