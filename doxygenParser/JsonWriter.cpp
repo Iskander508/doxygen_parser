@@ -523,14 +523,28 @@ void JsonWriter::WriteSingleClassJson(const stringRef& id) const
 				<< (method.Virtual ? _T("virtual ") : _T(""))
 				<< (method.returnType.empty() ? _T("") : method.returnType + _T(" "))
 				<< method.name << _T("(");
-			bool firstParam = true;
-			for (const auto& param: method.params) {
-				if (!firstParam) {
-					longName << _T(", ");
+			
+			if (!method.params.empty()) {
+				if (longName.str().size() < 50) {
+					std::basic_ostringstream<_TCHAR> params;
+					bool firstParam = true;
+					for (const auto& param: method.params) {
+						if (!firstParam) {
+							params << _T(", ");
+						}
+						firstParam = false;
+						params << param.type << _T(" ") << param.name;
+					}
+					if (params.str().size() > 30) {
+						longName << params.str().substr(0, 30) << _T("...");
+					} else {
+						longName << params.str();
+					}
+				} else {
+					longName << _T("...");
 				}
-				firstParam = false;
-				longName << param.type << _T(" ") << param.name;
 			}
+
 			longName << _T(")");
 			if (method.Const) longName << _T(" const");
 
