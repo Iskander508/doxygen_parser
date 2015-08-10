@@ -226,7 +226,7 @@ void JsonWriter::WriteClassesJson()
 			case Class::INTERFACE: type = _T("interface"); break;
 			case Class::CLASS: type = _T("class"); break;
 			}
-			file << WriteNode(c.first, c.second.name, c.first, type, c.second.namespaceId, c.second.data.doxygenId);			
+			file << WriteNode(c.first, c.second.name, c.first, type, c.second.namespaceId, c.second.data.doxygenId, c.second.data.filename);			
 			first = false;
 		}
 	}
@@ -281,7 +281,7 @@ string escape(string s)
 	return result;
 }
 
-string JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent, const stringRef& reference, const std::vector<string>& classes) const
+string JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent, const stringRef& reference, const stringRef& filename, const std::vector<string>& classes) const
 {
 	std::basic_ostringstream<_TCHAR> s;
 	s	<< _T("{\"id\":\"") << escape(id.str())
@@ -295,6 +295,9 @@ string JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, co
 	}
 	if (reference) {
 		s << _T("\", \"reference\":\"") << escape(reference.str());
+	}
+	if (filename) {
+		s << _T("\", \"filename\":\"") << escape(filename.str());
 	}
 	if (!classes.empty()) {
 		s << _T("\", \"classes\":[");
@@ -513,14 +516,14 @@ void JsonWriter::WriteSingleClassJson(const stringRef& id) const
 	file << _T("{\"nodes\": [") << std::endl;
 	std::set<string> collaborators;
 	{
-		file << WriteNode(_T("class"), id, id, _T("object"));
+		file << WriteNode(_T("class"), id, id, _T("object"), nullptr, nullptr, c.data.filename);
 		if (!c.parentId.empty()) {
 			file << _T(",") << std::endl;
-			file << WriteNode(c.parentId, m_classes.at(c.parentId).name, c.parentId, _T("parent"), nullptr, m_classes.at(c.parentId).data.doxygenId);
+			file << WriteNode(c.parentId, m_classes.at(c.parentId).name, c.parentId, _T("parent"), nullptr, m_classes.at(c.parentId).data.doxygenId, m_classes.at(c.parentId).data.filename);
 		}
 		for (const auto& connection: c.connections) {
 			file << _T(",") << std::endl;
-			file << WriteNode(connection.targetId, m_classes.at(connection.targetId).name, connection.targetId, _T("connection"), nullptr, m_classes.at(connection.targetId).data.doxygenId);
+			file << WriteNode(connection.targetId, m_classes.at(connection.targetId).name, connection.targetId, _T("connection"), nullptr, m_classes.at(connection.targetId).data.doxygenId, m_classes.at(connection.targetId).data.filename);
 		}
 		for (const auto& method: c.data.methods) {
 			file << _T(",") << std::endl;
@@ -564,7 +567,7 @@ void JsonWriter::WriteSingleClassJson(const stringRef& id) const
 				classes.push_back(_T("operator"));
 			}
 
-			file << WriteNode(method.doxygenId, method.name, longName.str(), _T("method"), _T("class"), nullptr, classes);
+			file << WriteNode(method.doxygenId, method.name, longName.str(), _T("method"), _T("class"), nullptr, nullptr, classes);
 		}
 		for (const auto& member: c.data.members) {
 			file << _T(",") << std::endl;
@@ -574,7 +577,7 @@ void JsonWriter::WriteSingleClassJson(const stringRef& id) const
 
 			std::vector<string> classes;
 			classes.push_back(string(GetProtectionLevel(member.protectionLevel)));
-			file << WriteNode(member.name, member.name, longName.str(), _T("member"), _T("class"), nullptr, classes);
+			file << WriteNode(member.name, member.name, longName.str(), _T("member"), _T("class"), nullptr, nullptr, classes);
 		}
 
 		// connections from other classes
@@ -594,7 +597,7 @@ void JsonWriter::WriteSingleClassJson(const stringRef& id) const
 		}
 		for (const auto& collaborator: collaborators) {
 			file << _T(",") << std::endl;
-			file << WriteNode(collaborator, m_classes.at(collaborator).name, collaborator, _T("collaborator"), nullptr, m_classes.at(collaborator).data.doxygenId);
+			file << WriteNode(collaborator, m_classes.at(collaborator).name, collaborator, _T("collaborator"), nullptr, m_classes.at(collaborator).data.doxygenId, m_classes.at(collaborator).data.filename);
 		}
 	}
 

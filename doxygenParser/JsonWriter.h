@@ -53,6 +53,7 @@ struct Class {
 
 	string name;
 	string doxygenId;
+	string filename; //!< declaration file
 	EType type;
 	std::map<string, EProtectionLevel> inheritance;
 	std::vector<Method> methods;
@@ -125,7 +126,7 @@ private:
 	static string GetWithoutLastId(const string& name);
 
 	std::vector<ClassConnection> GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel) const;
-	string WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent = nullptr, const stringRef& reference = nullptr, const std::vector<string>& classes = std::vector<string>()) const;
+	string WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent = nullptr, const stringRef& reference = nullptr, const stringRef& filename = nullptr, const std::vector<string>& classes = std::vector<string>()) const;
 	string WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description = nullptr, const std::vector<string>& classes = std::vector<string>()) const;
 
 private:

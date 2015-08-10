@@ -20,6 +20,9 @@ var Graph = Graph || (function(){
 				if (nodes[i].hasOwnProperty('reference')){
 					newNode.reference = nodes[i].reference;
 				}
+				if (nodes[i].hasOwnProperty('filename')){
+					newNode.filename = nodes[i].filename;
+				}
 				var nodeClasses = nodes[i].type;
 				if (nodes[i].hasOwnProperty('classes')) {
 					for(var c in nodes[i].classes) {
@@ -276,7 +279,8 @@ var Graph = Graph || (function(){
 						if (!target || !('isNode' in target) || !target.isNode() && !target.isEdge()) return;
 						if (mouseButtonDown) return;
 						
-						var sourceName = target.isNode() ? target.data("type") + "\n" + target.data("longName") : target.data("description");
+                        var path = target.isNode() && target.data("filename") ? "&lt;"+ target.data("filename") +"&gt;\n" : "";
+						var sourceName = target.isNode() ? path + target.data("type") + "\n" + target.data("longName") : target.data("description");
 
                         $("#box").qtip({
                             content: {

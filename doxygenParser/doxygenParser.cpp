@@ -68,6 +68,8 @@ int _tmain(int argc, _TCHAR* argv[])
 						newClass.name = def.GetElement(_T("compoundname")).Text().str();
 						std::wcout << _T("New class: ") << newClass.name << std::endl;
 
+						newClass.filename = def.GetElement(_T("location")).GetAttribute(_T("file")).str();
+
 						for (const auto& parent : def.Elements(_T("basecompoundref"))) {
 							EProtectionLevel protectionLevel = PACKAGE;
 							stringRef prot = parent.GetAttribute(_T("prot"));
