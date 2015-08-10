@@ -41,6 +41,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		std::vector<Class> classes;
 		std::vector<string> namespaces;
 
+		std::wcout << _T("Fetching classes...") << std::endl;
 		for (const auto& file : FileSystem::GetFiles(string(argv[1]), _T("xml"))) {
 			auto fileContent = readXMLFromFile(file.c_str());
 
@@ -65,6 +66,7 @@ int _tmain(int argc, _TCHAR* argv[])
 						}
 
 						newClass.name = def.GetElement(_T("compoundname")).Text().str();
+						std::wcout << _T("New class: ") << newClass.name << std::endl;
 
 						for (const auto& parent : def.Elements(_T("basecompoundref"))) {
 							EProtectionLevel protectionLevel = PACKAGE;
@@ -131,10 +133,17 @@ int _tmain(int argc, _TCHAR* argv[])
 			}
 		}
 
+
+		std::wcout << _T("Running classes analysis...") << std::endl;
 		JsonWriter writer(argv[1]);
 		writer.Initialize(namespaces, classes);
 
-		for (const auto& file : FileSystem::GetFiles(string(argv[1]), _T("xml"))) {
+		std::wcout << _T("Running source files analysis...") << std::endl;
+		const auto files = FileSystem::GetFiles(string(argv[1]), _T("xml"));
+
+		#pragma omp parallel for
+		for (int i = 0; i < files.size(); i++) {
+			const auto& file = files[i];
 			auto fileContent = readXMLFromFile(file.c_str());
 
 			using namespace rapidxml;
@@ -149,8 +158,11 @@ int _tmain(int argc, _TCHAR* argv[])
 			}
 		}
 
+		std::wcout << _T("Writing json output...") << std::endl;
 		writer.WriteClassesJson();
 		writer.WriteSingleClassJsons();
+
+		std::wcout << _T("Done.") << std::endl;
 
 	}
 	return 0;

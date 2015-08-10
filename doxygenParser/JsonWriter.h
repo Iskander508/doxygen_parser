@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <mutex>
 
 
 enum EProtectionLevel {
@@ -63,7 +64,8 @@ struct JsonWriter {
 	void ProcessFileDef(const Element& fileDef);
 
 	void WriteClassesJson();
-	void WriteSingleClassJsons();
+	void WriteSingleClassJsons() const;
+	void WriteSingleClassJson(const stringRef& id) const;
 
 private:
 	struct Namespace {
@@ -124,6 +126,7 @@ private:
 	std::map<string, Namespace> m_namespaces; //!< id -> Namespace
 	std::map<string, ClassEntry> m_classes; //!< id -> ClassEntry
 	string m_outputDir;
+	std::mutex m_lock;
 };
 
 #endif // JSON_WRITER_H__
