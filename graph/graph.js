@@ -142,6 +142,7 @@ var Graph = Graph || (function(){
 						'text-background-opacity': 1,
 						'text-background-shape': 'roundrectangle',
 						'edge-text-rotation': 'autorotate',
+                        'mid-target-arrow-fill': 'filled',
 						'width': 2,
                         'z-index': 2
 					  })
@@ -151,41 +152,59 @@ var Graph = Graph || (function(){
 						'text-background-color': '#EDA1ED',
                         'target-arrow-shape': 'none',
 						'source-arrow-shape': 'diamond',
-						'source-arrow-color': '#EDA1ED'
+						'source-arrow-color': '#EDA1ED',
+						'mid-target-arrow-color': '#EDA1ED'
 					  })
 					.selector('edge.override')
 					  .css({
 						'line-color': '#F5A45D',
 						'text-background-color': '#F5A45D',
-						'target-arrow-color': '#F5A45D'
+						'target-arrow-color': '#F5A45D',
+						'mid-target-arrow-color': '#F5A45D'
 					  })
 					.selector('edge.derives')
 					  .css({
 						'line-color': '#A5A40D',
 						'text-background-color': '#A5A40D',
-						'target-arrow-color': '#A5A40D'
-					  })
-                    .selector('edge.indirect,edge.uncertain')
-					  .css({
-						'line-style': 'dashed'
+						'target-arrow-color': '#A5A40D',
+						'mid-target-arrow-color': '#A5A40D'
 					  })
 					.selector('edge.parent,edge.call')
 					  .css({
 						'line-color': '#A5040D',
 						'text-background-color': '#A5040D',
-						'target-arrow-color': '#A5040D'
+						'target-arrow-color': '#A5040D',
+						'mid-target-arrow-color': '#A5040D'
 					  })
 					.selector('edge.access')
 					  .css({
 						'line-color': '#05A4DD',
 						'text-background-color': '#05A4DD',
-						'target-arrow-color': '#05A4DD'
+						'target-arrow-color': '#05A4DD',
+						'mid-target-arrow-color': '#05A4DD'
 					  })
 					.selector('edge.use')
 					  .css({
 						'line-color': '#777777',
 						'text-background-color': '#777777',
-						'target-arrow-color': '#777777'
+						'target-arrow-color': '#777777',
+						'mid-target-arrow-color': '#777777'
+					  })
+                    .selector('edge.indirect,edge.uncertain')
+					  .css({
+						'line-style': 'dashed'
+					  })
+                    .selector('edge.virtual')
+					  .css({
+						'font-style': 'italic'
+					  })
+                    .selector('edge.protected')
+					  .css({
+						'mid-target-arrow-shape': 'circle'
+					  })
+                    .selector('edge.private')
+					  .css({
+						'mid-source-arrow-shape': 'diamond'
 					  })
 					.selector('.faded')
 					  .css({

@@ -5,6 +5,29 @@
 #include <fstream>
 #include <regex>
 
+
+
+string escape(string s)
+{
+	string result = replaceAll(std::move(s), _T("\\"), _T("\\\\"));
+	result = replaceAll(std::move(result), _T("\""), _T("\\\""));
+	result = replaceAll(std::move(result), _T("\n"), _T("\\n"));
+	result = replaceAll(std::move(result), _T("\t"), _T("\\t"));
+	return result;
+}
+
+const _TCHAR* GetProtectionLevel(EProtectionLevel level) {
+	const _TCHAR* type = nullptr;
+	switch(level) {
+	case PRIVATE: type = _T("private"); break;
+	case PUBLIC: type = _T("public"); break;
+	case PROTECTED: type = _T("protected"); break;
+	case PACKAGE: type = _T("package"); break;
+	}
+	return type;
+}
+
+
 void ClassManager::Initialize()
 {
 	CalculateNamespaces(initNamespaces);
@@ -78,7 +101,7 @@ void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 
 		//newEntry.connections
 		for (const auto& parent: item.inheritance) {
-			for (auto& connection: GetConnections(parent.first, newEntry.namespaceId, ids, parent.second)) {
+			for (auto& connection: GetConnections(parent.classId, newEntry.namespaceId, ids, parent.protLevel, parent.Virtual)) {
 				newEntry.connections.push_back(connection);
 			}
 		}
@@ -98,15 +121,21 @@ void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 	}
 }
 
-std::vector<ClassManager::ClassConnection> ClassManager::GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel) const
+std::vector<ClassManager::ClassConnection> ClassManager::GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel, bool Virtual) const
 {
 	std::vector<ClassConnection> result;
 	ClassConnection connection;
+	connection.Virtual = Virtual;
+	connection.protectionLevel = protLevel;
+
 	switch (protLevel)
 	{
 	case PRIVATE: connection.connectionCode = _T("private "); break;
 	case PROTECTED: connection.connectionCode = _T("protected "); break;
 	case PUBLIC: connection.connectionCode = _T("public "); break;
+	}
+	if (Virtual) {
+		connection.connectionCode = _T("virtual ");
 	}
 	connection.connectionCode += type;
 	if (ids.find(type) != ids.end()) {
@@ -240,7 +269,6 @@ void ClassManager::WriteClassesJson()
 					file << _T(",") << std::endl;
 				}
 
-
 				const _TCHAR* type = nullptr;
 				switch (connection.type)
 				{
@@ -254,6 +282,10 @@ void ClassManager::WriteClassesJson()
 				case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
 				case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
 				}
+				if (connection.Virtual)	{
+					classes.push_back(_T("virtual"));
+				}
+				classes.push_back(GetProtectionLevel(connection.protectionLevel));
 
 				file << WriteEdge(c.first, connection.targetId, type, connection.connectionCode, classes);
 				first = false;
@@ -270,15 +302,6 @@ void ClassManager::WriteClassesJson()
 	}
 	file << std::endl << _T("]}") << std::endl;
 	file.close();
-}
-
-string escape(string s)
-{
-	string result = replaceAll(std::move(s), _T("\\"), _T("\\\\"));
-	result = replaceAll(std::move(result), _T("\""), _T("\\\""));
-	result = replaceAll(std::move(result), _T("\n"), _T("\\n"));
-	result = replaceAll(std::move(result), _T("\t"), _T("\\t"));
-	return result;
 }
 
 string ClassManager::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent, const stringRef& reference, const stringRef& filename, const std::vector<string>& classes) const
@@ -395,18 +418,22 @@ void ClassManager::ProcessDef(const Element& classDef)
 		newClass.filename = classDef.GetElement(_T("location")).GetAttribute(_T("file")).str();
 
 		for (const auto& parent : classDef.Elements(_T("basecompoundref"))) {
-			EProtectionLevel protectionLevel = PACKAGE;
-			stringRef prot = parent.GetAttribute(_T("prot"));
+			Inheritance inheritance;
+			inheritance.classId = parent.Text().str();
 
+			inheritance.protLevel = PACKAGE;
+			stringRef prot = parent.GetAttribute(_T("prot"));
 			if (prot == _T("public")) {
-				protectionLevel = PUBLIC;
+				inheritance.protLevel = PUBLIC;
 			} else if (prot == _T("protected")) {
-				protectionLevel = PROTECTED;
+				inheritance.protLevel = PROTECTED;
 			} else if (prot == _T("private")) {
-				protectionLevel = PRIVATE;
+				inheritance.protLevel = PRIVATE;
 			}
 
-			newClass.inheritance.insert(std::map<string, EProtectionLevel>::value_type(string(parent.Text().str()), protectionLevel));
+			inheritance.Virtual = (parent.GetAttribute(_T("virt")) == _T("virtual"));
+
+			newClass.inheritance.push_back(std::move(inheritance));
 		}
 
 
@@ -574,17 +601,6 @@ void ClassManager::ProcessFileDef(const Element& fileDef)
 	}
 }
 
-const _TCHAR* GetProtectionLevel(EProtectionLevel level) {
-	const _TCHAR* type = nullptr;
-	switch(level) {
-	case PRIVATE: type = _T("private"); break;
-	case PUBLIC: type = _T("public"); break;
-	case PROTECTED: type = _T("protected"); break;
-	case PACKAGE: type = _T("package"); break;
-	}
-	return type;
-}
-
 void ClassManager::WriteSingleClassJsons() const
 {
 	for (const auto& c: m_classes) {
@@ -611,7 +627,7 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 		for (const auto& method: c.data.methods) {
 			file << _T(",") << std::endl;
 			std::basic_ostringstream<_TCHAR> longName; 
-			longName << string(GetProtectionLevel(method.protectionLevel)) << _T(" ")
+			longName << GetProtectionLevel(method.protectionLevel) << _T(" ")
 				<< (method.Virtual ? _T("virtual ") : _T(""))
 				<< (method.returnType.empty() ? _T("") : method.returnType + _T(" "))
 				<< method.name << _T("(");
@@ -641,7 +657,7 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 			if (method.Const) longName << _T(" const");
 
 			std::vector<string> classes;
-			classes.push_back(string(GetProtectionLevel(method.protectionLevel)));
+			classes.push_back(GetProtectionLevel(method.protectionLevel));
 			if (method.name == c.name) {
 				classes.push_back(_T("constructor"));
 			} else if (method.name[0] == _T('~')) {
@@ -655,11 +671,11 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 		for (const auto& member: c.data.members) {
 			file << _T(",") << std::endl;
 			std::basic_ostringstream<_TCHAR> longName;
-			longName << string(GetProtectionLevel(member.protectionLevel)) << _T(" ")
+			longName << GetProtectionLevel(member.protectionLevel) << _T(" ")
 				<< member.type << _T(" ") << member.name;
 
 			std::vector<string> classes;
-			classes.push_back(string(GetProtectionLevel(member.protectionLevel)));
+			classes.push_back(GetProtectionLevel(member.protectionLevel));
 			file << WriteNode(member.name, member.name, longName.str(), _T("member"), _T("class"), nullptr, nullptr, classes);
 		}
 
@@ -737,6 +753,10 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 				case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
 				case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
 				}
+				if (connection.Virtual)	{
+					classes.push_back(_T("virtual"));
+				}
+				classes.push_back(GetProtectionLevel(connection.protectionLevel));
 				file << WriteEdge(_T("class"), connection.targetId, _T("derives"), connection.connectionCode, classes);
 			}
 
@@ -770,6 +790,10 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 					case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
 					case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
 					}
+					if (connection.Virtual)	{
+						classes.push_back(_T("virtual"));
+					}
+					classes.push_back(GetProtectionLevel(connection.protectionLevel));
 					
 					file << WriteEdge(collaborator, _T("class"), type, connection.connectionCode, classes);
 					first = false;

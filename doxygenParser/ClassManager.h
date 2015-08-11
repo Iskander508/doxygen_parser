@@ -44,6 +44,12 @@ struct Method {
 	bool operator!=(const Method& that) const { return !operator==(that); }
 };
 
+struct Inheritance {
+	string classId;
+	EProtectionLevel protLevel;
+	bool Virtual;
+};
+
 struct Class {
 	enum EType {
 		INTERFACE,
@@ -55,7 +61,7 @@ struct Class {
 	string doxygenId;
 	string filename; //!< declaration file
 	EType type;
-	std::map<string, EProtectionLevel> inheritance;
+	std::vector<Inheritance> inheritance;
 	std::vector<Method> methods;
 	std::vector<Member> members;
 };
@@ -89,6 +95,8 @@ private:
 		string connectionCode;
 		string connectedMember;
 		EClassConnectionType type;
+		bool Virtual;
+		EProtectionLevel protectionLevel;
 	};
 
 	enum EMemberUsageType {
@@ -126,7 +134,7 @@ private:
 	static string GetLastId(const string& name);
 	static string GetWithoutLastId(const string& name);
 
-	std::vector<ClassConnection> GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel) const;
+	std::vector<ClassConnection> GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel, bool Virtual = false) const;
 	string WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent = nullptr, const stringRef& reference = nullptr, const stringRef& filename = nullptr, const std::vector<string>& classes = std::vector<string>()) const;
 	string WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description = nullptr, const std::vector<string>& classes = std::vector<string>()) const;
 
