@@ -63,8 +63,9 @@ struct Class {
 struct ClassManager {
 	ClassManager(const stringRef& outputDir) : m_outputDir(outputDir.str()) {}
 
-	void Initialize(const std::vector<string>& namespaces, const std::vector<Class>& classes);
+	void Initialize();
 
+	void ProcessDef(const Element& classDef);
 	void ProcessFileDef(const Element& fileDef);
 
 	void WriteClassesJson();
@@ -134,6 +135,9 @@ private:
 	std::map<string, ClassEntry> m_classes; //!< id -> ClassEntry
 	string m_outputDir;
 	std::mutex m_lock;
+
+	std::vector<Class> initClasses;
+	std::vector<string> initNamespaces;
 };
 
 #endif // CLASS_MANAGER_H__
