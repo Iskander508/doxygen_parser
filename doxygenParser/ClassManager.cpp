@@ -1,18 +1,18 @@
-#include "JsonWriter.h"
+#include "ClassManager.h"
 #include <set>
 #include <sstream>
 #include <iostream>
 #include <fstream>
 #include <regex>
 
-void JsonWriter::Initialize(const std::vector<string>& namespaces, const std::vector<Class>& classes)
+void ClassManager::Initialize(const std::vector<string>& namespaces, const std::vector<Class>& classes)
 {
 	CalculateNamespaces(namespaces);
 	CalculateClasses(classes);
 	CalculateMethodOverrides();
 }
 
-void JsonWriter::CalculateNamespaces(const std::vector<string>& namespaces)
+void ClassManager::CalculateNamespaces(const std::vector<string>& namespaces)
 {
 	for (const auto& item: namespaces) {
 		Namespace newNamespace;
@@ -48,7 +48,7 @@ std::vector<string> split(const string &s, const _TCHAR (&delim)[Size]) {
 	return elems;
 }
 
-void JsonWriter::CalculateClasses(const std::vector<Class>& classes)
+void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 {
 	std::set<string> ids;
 	for (const auto& item: classes) {
@@ -98,7 +98,7 @@ void JsonWriter::CalculateClasses(const std::vector<Class>& classes)
 	}
 }
 
-std::vector<JsonWriter::ClassConnection> JsonWriter::GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel) const
+std::vector<ClassManager::ClassConnection> ClassManager::GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel) const
 {
 	std::vector<ClassConnection> result;
 	ClassConnection connection;
@@ -134,7 +134,7 @@ std::vector<JsonWriter::ClassConnection> JsonWriter::GetConnections(const string
 	return result;
 }
 
-string JsonWriter::GetLastId(const string& name)
+string ClassManager::GetLastId(const string& name)
 {
 	const std::size_t found = name.rfind(_T("::"));
 	if (found != std::string::npos) {
@@ -143,7 +143,7 @@ string JsonWriter::GetLastId(const string& name)
 	return name;
 }
 
-string JsonWriter::GetWithoutLastId(const string& name)
+string ClassManager::GetWithoutLastId(const string& name)
 {
 	const std::size_t found = name.rfind(_T("::"));
 	if (found != std::string::npos) {
@@ -152,7 +152,7 @@ string JsonWriter::GetWithoutLastId(const string& name)
 	return string();
 }
 
-void JsonWriter::ClearOrphanItems()
+void ClassManager::ClearOrphanItems()
 {
 	bool erased;
 	do {
@@ -201,7 +201,7 @@ void JsonWriter::ClearOrphanItems()
 	} while (erased);
 }
 
-void JsonWriter::WriteClassesJson()
+void ClassManager::WriteClassesJson()
 {
 	ClearOrphanItems();
 
@@ -281,7 +281,7 @@ string escape(string s)
 	return result;
 }
 
-string JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent, const stringRef& reference, const stringRef& filename, const std::vector<string>& classes) const
+string ClassManager::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent, const stringRef& reference, const stringRef& filename, const std::vector<string>& classes) const
 {
 	std::basic_ostringstream<_TCHAR> s;
 	s	<< _T("{\"id\":\"") << escape(id.str())
@@ -314,7 +314,7 @@ string JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, co
 	return s.str();
 }
 
-string JsonWriter::WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description, const std::vector<string>& classes) const
+string ClassManager::WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description, const std::vector<string>& classes) const
 {
 	std::basic_ostringstream<_TCHAR> s;
 	s	<< _T("{\"source\":\"") << escape(source.str())
@@ -338,7 +338,7 @@ string JsonWriter::WriteEdge(const stringRef& source, const stringRef& target, c
 	return s.str();
 }
 
-void JsonWriter::CalculateMethodOverrides()
+void ClassManager::CalculateMethodOverrides()
 {
 	for (auto& c: m_classes) {
 		for (auto& method: c.second.data.methods) {
@@ -374,7 +374,7 @@ void JsonWriter::CalculateMethodOverrides()
 	}
 }
 
-void JsonWriter::ProcessFileDef(const Element& fileDef)
+void ClassManager::ProcessFileDef(const Element& fileDef)
 {
 	const stringRef location = fileDef.GetElement(_T("location")).GetAttribute(_T("file")).str();
 	for (auto& c: m_classes) {
@@ -502,14 +502,14 @@ const _TCHAR* GetProtectionLevel(EProtectionLevel level) {
 	return type;
 }
 
-void JsonWriter::WriteSingleClassJsons() const
+void ClassManager::WriteSingleClassJsons() const
 {
 	for (const auto& c: m_classes) {
 		WriteSingleClassJson(c.first);
 	}
 }
 
-void JsonWriter::WriteSingleClassJson(const stringRef& id) const
+void ClassManager::WriteSingleClassJson(const stringRef& id) const
 {
 	const auto& c = m_classes.at(id.str());
 	std::basic_ofstream<_TCHAR> file(m_outputDir + _T("\\") + c.data.doxygenId + _T(".json"));

@@ -1,5 +1,5 @@
-#ifndef JSON_WRITER_H__
-#define JSON_WRITER_H__
+#ifndef CLASS_MANAGER_H__
+#define CLASS_MANAGER_H__
 
 #include "types.h"
 #include "xml/structure.h"
@@ -60,8 +60,8 @@ struct Class {
 	std::vector<Member> members;
 };
 
-struct JsonWriter {
-	JsonWriter(const stringRef& outputDir) : m_outputDir(outputDir.str()) {}
+struct ClassManager {
+	ClassManager(const stringRef& outputDir) : m_outputDir(outputDir.str()) {}
 
 	void Initialize(const std::vector<string>& namespaces, const std::vector<Class>& classes);
 
@@ -136,4 +136,4 @@ private:
 	std::mutex m_lock;
 };
 
-#endif // JSON_WRITER_H__
+#endif // CLASS_MANAGER_H__

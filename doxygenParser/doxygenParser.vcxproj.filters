@@ -38,7 +38,7 @@
     <ClInclude Include="types.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="JsonWriter.h">
+    <ClInclude Include="ClassManager.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -49,7 +49,7 @@
     <ClCompile Include="FileSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="JsonWriter.cpp">
+    <ClCompile Include="ClassManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

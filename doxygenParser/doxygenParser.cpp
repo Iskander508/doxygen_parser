@@ -5,7 +5,7 @@
 #include "xml/structure.h"
 #include <iostream>
 #include "FileSystem.h"
-#include "JsonWriter.h"
+#include "ClassManager.h"
 
 void printElement(const Element& element, const int indent = 0) {
 	const string indentation(indent*2, _T(' '));
@@ -137,8 +137,8 @@ int _tmain(int argc, _TCHAR* argv[])
 
 
 		std::wcout << _T("Running classes analysis...") << std::endl;
-		JsonWriter writer(argv[1]);
-		writer.Initialize(namespaces, classes);
+		ClassManager classManager(argv[1]);
+		classManager.Initialize(namespaces, classes);
 
 		std::wcout << _T("Running source files analysis...") << std::endl;
 		const auto files = FileSystem::GetFiles(string(argv[1]), _T("xml"));
@@ -155,14 +155,14 @@ int _tmain(int argc, _TCHAR* argv[])
 			Element doxygenNode = Element(doc.first_node(_T("doxygen")));
 			for (const auto& def : doxygenNode.Elements(_T("compounddef"))) {
 				if (def.GetAttribute(_T("language")) == _T("C++") && def.GetAttribute(_T("kind")) == _T("file")) {
-					writer.ProcessFileDef(def);
+					classManager.ProcessFileDef(def);
 				}
 			}
 		}
 
 		std::wcout << _T("Writing json output...") << std::endl;
-		writer.WriteClassesJson();
-		writer.WriteSingleClassJsons();
+		classManager.WriteClassesJson();
+		classManager.WriteSingleClassJsons();
 
 		std::wcout << _T("Done.") << std::endl;
 
