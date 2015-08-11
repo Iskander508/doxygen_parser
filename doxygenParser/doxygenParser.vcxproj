@@ -88,6 +88,7 @@
     <ClInclude Include="..\rapidxml\rapidxml_utils.hpp" />
     <ClInclude Include="FileSystem.h" />
     <ClInclude Include="ClassManager.h" />
+    <ClInclude Include="JsonWriter.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="xml\structure.h" />
   </ItemGroup>
@@ -95,6 +96,7 @@
     <ClCompile Include="doxygenParser.cpp" />
     <ClCompile Include="FileSystem.cpp" />
     <ClCompile Include="ClassManager.cpp" />
+    <ClCompile Include="JsonWriter.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

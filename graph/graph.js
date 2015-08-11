@@ -295,6 +295,7 @@ var Graph = Graph || (function(){
 					cy.on('mousemove', function(event){
 						var target = event ? event.cyTarget : undefined;
 						if (!target || !('isNode' in target) || !target.isNode() && !target.isEdge()) return;
+						if (target.isNode() && target.isParent()) return;
 						if (mouseButtonDown) return;
 						
                         var path = target.isNode() && target.data("filename") ? "&lt;"+ target.data("filename") +"&gt;\n" : "";
@@ -318,7 +319,7 @@ var Graph = Graph || (function(){
                             hide: {
                                 fixed: true,
                                 event: false,
-                                inactive: 2000
+                                inactive: 1000
                             },
                             style: {
                                 classes: 'ui-tooltip-shadow ui-tooltip-youtube',

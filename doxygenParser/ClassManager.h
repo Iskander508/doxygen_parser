@@ -76,7 +76,6 @@ struct ClassManager {
 
 	void WriteClassesJson();
 	void WriteSingleClassJsons() const;
-	void WriteSingleClassJson(const stringRef& id) const;
 
 private:
 	struct Namespace {
@@ -135,8 +134,7 @@ private:
 	static string GetWithoutLastId(const string& name);
 
 	std::vector<ClassConnection> GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel, bool Virtual = false) const;
-	string WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent = nullptr, const stringRef& reference = nullptr, const stringRef& filename = nullptr, const std::vector<string>& classes = std::vector<string>()) const;
-	string WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description = nullptr, const std::vector<string>& classes = std::vector<string>()) const;
+	void WriteSingleClassJson(const stringRef& id) const;
 
 private:
 	std::map<string, Namespace> m_namespaces; //!< id -> Namespace

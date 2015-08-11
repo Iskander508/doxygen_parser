@@ -1,20 +1,11 @@
 #include "ClassManager.h"
+#include "JsonWriter.h"
 #include <set>
 #include <sstream>
 #include <iostream>
-#include <fstream>
 #include <regex>
 
 
-
-string escape(string s)
-{
-	string result = replaceAll(std::move(s), _T("\\"), _T("\\\\"));
-	result = replaceAll(std::move(result), _T("\""), _T("\\\""));
-	result = replaceAll(std::move(result), _T("\n"), _T("\\n"));
-	result = replaceAll(std::move(result), _T("\t"), _T("\\t"));
-	return result;
-}
 
 const _TCHAR* GetProtectionLevel(EProtectionLevel level) {
 	const _TCHAR* type = nullptr;
@@ -234,131 +225,48 @@ void ClassManager::WriteClassesJson()
 {
 	ClearOrphanItems();
 
-	std::basic_ofstream<_TCHAR> file(m_outputDir + _T("\\classes.json"));
-	file << _T("{\"nodes\": [") << std::endl;
-	{
-		bool first = true;
-		for (const auto& n: m_namespaces) {
-			if (!first) {
-				file << _T(",") << std::endl;
-			}
-			file << WriteNode(n.first, n.second.name, n.first, _T("namespace"), n.second.parentId);
-			first = false;
+	JsonWriter file(m_outputDir + _T("\\classes.json"));
+	for (const auto& n: m_namespaces) {
+		file.WriteNode(n.first, n.second.name, n.first, _T("namespace"), n.second.parentId);
+	}
+	for (const auto& c: m_classes) {
+		const _TCHAR* type = nullptr;
+		switch(c.second.data.type) {
+		case Class::STRUCT: type = _T("struct"); break;
+		case Class::INTERFACE: type = _T("interface"); break;
+		case Class::CLASS: type = _T("class"); break;
 		}
-		for (const auto& c: m_classes) {
-			if (!first) {
-				file << _T(",") << std::endl;
-			}
+		file.WriteNode(c.first, c.second.name, c.first, type, c.second.namespaceId, c.second.data.doxygenId, c.second.data.filename);			
+	}
+
+	for (const auto& c: m_classes) {			
+		for (const auto& connection: c.second.connections) {
+
 			const _TCHAR* type = nullptr;
-			switch(c.second.data.type) {
-			case Class::STRUCT: type = _T("struct"); break;
-			case Class::INTERFACE: type = _T("interface"); break;
-			case Class::CLASS: type = _T("class"); break;
+			switch (connection.type)
+			{
+			case MEMBER_ITEM: type = _T("member"); break;
+			default: type = _T("derives"); break;
 			}
-			file << WriteNode(c.first, c.second.name, c.first, type, c.second.namespaceId, c.second.data.doxygenId, c.second.data.filename);			
-			first = false;
+
+			std::vector<string> classes;
+			switch (connection.type)
+			{
+			case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
+			case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
+			}
+			if (connection.Virtual)	{
+				classes.push_back(_T("virtual"));
+			}
+			classes.push_back(GetProtectionLevel(connection.protectionLevel));
+
+			file.WriteEdge(c.first, connection.targetId, type, connection.connectionCode, classes);
+		}
+
+		if (!c.second.parentId.empty()) {
+			file.WriteEdge(c.first, c.second.parentId, _T("parent"));
 		}
 	}
-
-	file << std::endl << _T("], \"edges\": [") << std::endl;
-	{
-		bool first = true;
-		for (const auto& c: m_classes) {			
-			for (const auto& connection: c.second.connections) {
-				if (!first) {
-					file << _T(",") << std::endl;
-				}
-
-				const _TCHAR* type = nullptr;
-				switch (connection.type)
-				{
-				case MEMBER_ITEM: type = _T("member"); break;
-				default: type = _T("derives"); break;
-				}
-
-				std::vector<string> classes;
-				switch (connection.type)
-				{
-				case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
-				case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
-				}
-				if (connection.Virtual)	{
-					classes.push_back(_T("virtual"));
-				}
-				classes.push_back(GetProtectionLevel(connection.protectionLevel));
-
-				file << WriteEdge(c.first, connection.targetId, type, connection.connectionCode, classes);
-				first = false;
-			}
-
-			if (!c.second.parentId.empty()) {
-				if (!first) {
-					file << _T(",") << std::endl;
-				}
-				file << WriteEdge(c.first, c.second.parentId, _T("parent"));
-				first = false;
-			}
-		}
-	}
-	file << std::endl << _T("]}") << std::endl;
-	file.close();
-}
-
-string ClassManager::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type, const stringRef& parent, const stringRef& reference, const stringRef& filename, const std::vector<string>& classes) const
-{
-	std::basic_ostringstream<_TCHAR> s;
-	s	<< _T("{\"id\":\"") << escape(id.str())
-		<< _T("\", \"shortName\":\"") << escape(shortName.str())
-		<< _T("\", \"type\":\"") << escape(type.str());
-	if (parent) {
-		s << _T("\", \"parent\":\"") << escape(parent.str());
-	}
-	if (longName) {
-		s << _T("\", \"longName\":\"") << escape(longName.str());
-	}
-	if (reference) {
-		s << _T("\", \"reference\":\"") << escape(reference.str());
-	}
-	if (filename) {
-		s << _T("\", \"filename\":\"") << escape(filename.str());
-	}
-	if (!classes.empty()) {
-		s << _T("\", \"classes\":[");
-		bool first = true;
-		for (const auto& c : classes) {
-			if (!first) {
-				s << _T(",");
-			}
-			first = false;
-			s << _T("\"") << escape(c) << _T("\"");
-		}
-		s << _T("]}");
-	} else s << _T("\"}");
-	return s.str();
-}
-
-string ClassManager::WriteEdge(const stringRef& source, const stringRef& target, const stringRef& type, const stringRef& description, const std::vector<string>& classes) const
-{
-	std::basic_ostringstream<_TCHAR> s;
-	s	<< _T("{\"source\":\"") << escape(source.str())
-		<< _T("\", \"target\":\"") << escape(target.str())
-		<< _T("\", \"type\":\"") << escape(type.str());
-	if (description) {
-		s << _T("\", \"description\":\"") << escape(description.str());
-	}
-	if (!classes.empty()) {
-		s << _T("\", \"classes\":[");
-		bool first = true;
-		for (const auto& c : classes) {
-			if (!first) {
-				s << _T(",");
-			}
-			first = false;
-			s << _T("\"") << escape(c) << _T("\"");
-		}
-		s << _T("]}");
-	} else s << _T("\"}");
-	return s.str();
 }
 
 void ClassManager::CalculateMethodOverrides()
@@ -611,142 +519,148 @@ void ClassManager::WriteSingleClassJsons() const
 void ClassManager::WriteSingleClassJson(const stringRef& id) const
 {
 	const auto& c = m_classes.at(id.str());
-	std::basic_ofstream<_TCHAR> file(m_outputDir + _T("\\") + c.data.doxygenId + _T(".json"));
-	file << _T("{\"nodes\": [") << std::endl;
+	JsonWriter file(m_outputDir + _T("\\") + c.data.doxygenId + _T(".json"), id);
+
 	std::set<string> collaborators;
-	{
-		file << WriteNode(_T("class"), id, id, _T("object"), nullptr, nullptr, c.data.filename);
-		if (!c.parentId.empty()) {
-			file << _T(",") << std::endl;
-			file << WriteNode(c.parentId, m_classes.at(c.parentId).name, c.parentId, _T("parent"), nullptr, m_classes.at(c.parentId).data.doxygenId, m_classes.at(c.parentId).data.filename);
-		}
-		for (const auto& connection: c.connections) {
-			file << _T(",") << std::endl;
-			file << WriteNode(connection.targetId, m_classes.at(connection.targetId).name, connection.targetId, _T("connection"), nullptr, m_classes.at(connection.targetId).data.doxygenId, m_classes.at(connection.targetId).data.filename);
-		}
-		for (const auto& method: c.data.methods) {
-			file << _T(",") << std::endl;
-			std::basic_ostringstream<_TCHAR> longName; 
-			longName << GetProtectionLevel(method.protectionLevel) << _T(" ")
-				<< (method.Virtual ? _T("virtual ") : _T(""))
-				<< (method.returnType.empty() ? _T("") : method.returnType + _T(" "))
-				<< method.name << _T("(");
-			
-			if (!method.params.empty()) {
-				if (longName.str().size() < 50) {
-					std::basic_ostringstream<_TCHAR> params;
-					bool firstParam = true;
-					for (const auto& param: method.params) {
-						if (!firstParam) {
-							params << _T(", ");
-						}
-						firstParam = false;
-						params << param.type << _T(" ") << param.name;
+	file.WriteNode(_T("class"), id, id, _T("object"), nullptr, nullptr, c.data.filename);
+	if (!c.parentId.empty()) {
+		file.WriteNode(c.parentId, m_classes.at(c.parentId).name, c.parentId, _T("parent"), nullptr, m_classes.at(c.parentId).data.doxygenId, m_classes.at(c.parentId).data.filename);
+	}
+	for (const auto& connection: c.connections) {
+		file.WriteNode(connection.targetId, m_classes.at(connection.targetId).name, connection.targetId, _T("connection"), nullptr, m_classes.at(connection.targetId).data.doxygenId, m_classes.at(connection.targetId).data.filename);
+	}
+	for (const auto& method: c.data.methods) {
+		std::basic_ostringstream<_TCHAR> longName; 
+		longName << GetProtectionLevel(method.protectionLevel) << _T(" ")
+			<< (method.Virtual ? _T("virtual ") : _T(""))
+			<< (method.returnType.empty() ? _T("") : method.returnType + _T(" "))
+			<< method.name << _T("(");
+
+		if (!method.params.empty()) {
+			if (longName.str().size() < 50) {
+				std::basic_ostringstream<_TCHAR> params;
+				bool firstParam = true;
+				for (const auto& param: method.params) {
+					if (!firstParam) {
+						params << _T(", ");
 					}
-					if (params.str().size() > 30) {
-						longName << params.str().substr(0, 30) << _T("...");
-					} else {
-						longName << params.str();
-					}
-				} else {
-					longName << _T("...");
+					firstParam = false;
+					params << param.type << _T(" ") << param.name;
 				}
+				if (params.str().size() > 30) {
+					longName << params.str().substr(0, 30) << _T("...");
+				} else {
+					longName << params.str();
+				}
+			} else {
+				longName << _T("...");
 			}
-
-			longName << _T(")");
-			if (method.Const) longName << _T(" const");
-
-			std::vector<string> classes;
-			classes.push_back(GetProtectionLevel(method.protectionLevel));
-			if (method.name == c.name) {
-				classes.push_back(_T("constructor"));
-			} else if (method.name[0] == _T('~')) {
-				classes.push_back(_T("destructor"));
-			} else if (method.name.find(_T("operator")) != string::npos) {
-				classes.push_back(_T("operator"));
-			}
-
-			file << WriteNode(method.doxygenId, method.name, longName.str(), _T("method"), _T("class"), nullptr, nullptr, classes);
-		}
-		for (const auto& member: c.data.members) {
-			file << _T(",") << std::endl;
-			std::basic_ostringstream<_TCHAR> longName;
-			longName << GetProtectionLevel(member.protectionLevel) << _T(" ")
-				<< member.type << _T(" ") << member.name;
-
-			std::vector<string> classes;
-			classes.push_back(GetProtectionLevel(member.protectionLevel));
-			file << WriteNode(member.name, member.name, longName.str(), _T("member"), _T("class"), nullptr, nullptr, classes);
 		}
 
-		// connections from other classes
-		for (const auto& other: m_classes) {
-			if (other.second.parentId == id.str()) {
+		longName << _T(")");
+		if (method.Const) longName << _T(" const");
+
+		std::vector<string> classes;
+		classes.push_back(GetProtectionLevel(method.protectionLevel));
+		if (method.name == c.name) {
+			classes.push_back(_T("constructor"));
+		} else if (method.name[0] == _T('~')) {
+			classes.push_back(_T("destructor"));
+		} else if (method.name.find(_T("operator")) != string::npos) {
+			classes.push_back(_T("operator"));
+		}
+
+		file.WriteNode(method.doxygenId, method.name, longName.str(), _T("method"), _T("class"), nullptr, nullptr, classes);
+	}
+	for (const auto& member: c.data.members) {
+		std::basic_ostringstream<_TCHAR> longName;
+		longName << GetProtectionLevel(member.protectionLevel) << _T(" ")
+			<< member.type << _T(" ") << member.name;
+
+		std::vector<string> classes;
+		classes.push_back(GetProtectionLevel(member.protectionLevel));
+		file.WriteNode(member.name, member.name, longName.str(), _T("member"), _T("class"), nullptr, nullptr, classes);
+	}
+
+	// connections from other classes
+	for (const auto& other: m_classes) {
+		if (other.second.parentId == id.str()) {
+			collaborators.insert(other.first);
+		}
+		for (const auto& connection: other.second.connections) {
+			if (connection.targetId == id.str())	{
 				collaborators.insert(other.first);
 			}
-			for (const auto& connection: other.second.connections) {
-				if (connection.targetId == id.str())	{
-					collaborators.insert(other.first);
-				}
+		}
+	}
+	for (const auto& usage: c.memberUsages) {
+		if (usage.type != CLASS_USAGE || m_classes.find(usage.targetId) == m_classes.end()) continue;
+		collaborators.insert(usage.targetId);
+	}
+	for (const auto& collaborator: collaborators) {
+		file.WriteNode(collaborator, m_classes.at(collaborator).name, collaborator, _T("collaborator"), nullptr, m_classes.at(collaborator).data.doxygenId, m_classes.at(collaborator).data.filename);
+	}
+
+
+
+	if (!c.parentId.empty()) {
+		file.WriteEdge(_T("class"), c.parentId, _T("parent"));
+	}
+
+	for (const auto& method: c.methodOverrides) {
+		file.WriteEdge(method.first, method.second, _T("override"));
+	}
+
+	for (const auto& usage: c.memberUsages) {
+		if (usage.type == CLASS_USAGE && m_classes.find(usage.targetId) == m_classes.end()) continue;
+
+		const _TCHAR* type = nullptr;
+		switch(usage.type) {
+		case MEMBER_ACCESS: type = _T("access"); break;
+		case METHOD_CALL: type = _T("call"); break;
+		case CLASS_USAGE: type = _T("use"); break;
+		}
+
+		std::vector<string> classes;
+		if (!usage.certain) {
+			classes.push_back(_T("uncertain"));
+		}
+		file.WriteEdge(usage.sourceMethodId, usage.targetId, type, usage.connectionCode, classes);
+	}
+
+	for (const auto& connection: c.connections) {
+
+		if (connection.type == MEMBER_ITEM) {
+			file.WriteEdge(connection.connectedMember, connection.targetId, _T("member"), connection.connectionCode);
+		} else {
+			std::vector<string> classes;
+			switch (connection.type)
+			{
+			case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
+			case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
 			}
-		}
-		for (const auto& usage: c.memberUsages) {
-			if (usage.type != CLASS_USAGE || m_classes.find(usage.targetId) == m_classes.end()) continue;
-			collaborators.insert(usage.targetId);
-		}
-		for (const auto& collaborator: collaborators) {
-			file << _T(",") << std::endl;
-			file << WriteNode(collaborator, m_classes.at(collaborator).name, collaborator, _T("collaborator"), nullptr, m_classes.at(collaborator).data.doxygenId, m_classes.at(collaborator).data.filename);
+			if (connection.Virtual)	{
+				classes.push_back(_T("virtual"));
+			}
+			classes.push_back(GetProtectionLevel(connection.protectionLevel));
+			file.WriteEdge(_T("class"), connection.targetId, _T("derives"), connection.connectionCode, classes);
 		}
 	}
 
-	file << std::endl << _T("], \"edges\": [") << std::endl;
-	{
-		bool first = true;
-		if (!c.parentId.empty()) {
-			first = false;
-			file << WriteEdge(_T("class"), c.parentId, _T("parent"));
+	for (const auto& collaborator: collaborators) {
+		if (m_classes.at(collaborator).parentId == id.str()) {
+			file.WriteEdge(collaborator, _T("class"), _T("parent"));
 		}
+		for (const auto& connection: m_classes.at(collaborator).connections) {
+			if (connection.targetId == id.str())	{
 
-		for (const auto& method: c.methodOverrides) {
-			if (!first) {
-				file << _T(",") << std::endl;
-			}
-			file << WriteEdge(method.first, method.second, _T("override"));
-			first = false;
-		}
+				const _TCHAR* type = nullptr;
+				switch (connection.type)
+				{
+				case MEMBER_ITEM: type = _T("member"); break;
+				default: type = _T("derives"); break;
+				}
 
-		for (const auto& usage: c.memberUsages) {
-			if (usage.type == CLASS_USAGE && m_classes.find(usage.targetId) == m_classes.end()) continue;
-
-			if (!first) {
-				file << _T(",") << std::endl;
-			}
-
-			const _TCHAR* type = nullptr;
-			switch(usage.type) {
-			case MEMBER_ACCESS: type = _T("access"); break;
-			case METHOD_CALL: type = _T("call"); break;
-			case CLASS_USAGE: type = _T("use"); break;
-			}
-
-			std::vector<string> classes;
-			if (!usage.certain) {
-				classes.push_back(_T("uncertain"));
-			}
-			file << WriteEdge(usage.sourceMethodId, usage.targetId, type, usage.connectionCode, classes);
-			first = false;
-		}
-
-		for (const auto& connection: c.connections) {
-
-			if (!first) {
-				file << _T(",") << std::endl;
-			}
-
-			if (connection.type == MEMBER_ITEM) {
-				file << WriteEdge(connection.connectedMember, connection.targetId, _T("member"), connection.connectionCode);
-			} else {
 				std::vector<string> classes;
 				switch (connection.type)
 				{
@@ -757,50 +671,10 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 					classes.push_back(_T("virtual"));
 				}
 				classes.push_back(GetProtectionLevel(connection.protectionLevel));
-				file << WriteEdge(_T("class"), connection.targetId, _T("derives"), connection.connectionCode, classes);
-			}
 
-			first = false;
-		}
-
-		for (const auto& collaborator: collaborators) {
-			if (m_classes.at(collaborator).parentId == id.str()) {
-				if (!first) {
-					file << _T(",") << std::endl;
-				}
-				file << WriteEdge(collaborator, _T("class"), _T("parent"));
-				first = false;
-			}
-			for (const auto& connection: m_classes.at(collaborator).connections) {
-				if (connection.targetId == id.str())	{
-					if (!first) {
-						file << _T(",") << std::endl;
-					}
-
-					const _TCHAR* type = nullptr;
-					switch (connection.type)
-					{
-					case MEMBER_ITEM: type = _T("member"); break;
-					default: type = _T("derives"); break;
-					}
-				
-					std::vector<string> classes;
-					switch (connection.type)
-					{
-					case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
-					case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
-					}
-					if (connection.Virtual)	{
-						classes.push_back(_T("virtual"));
-					}
-					classes.push_back(GetProtectionLevel(connection.protectionLevel));
-					
-					file << WriteEdge(collaborator, _T("class"), type, connection.connectionCode, classes);
-					first = false;
-				}
+				file.WriteEdge(collaborator, _T("class"), type, connection.connectionCode, classes);
 			}
 		}
 	}
-	file << std::endl << _T("], \"class\":\"") << escape(id.str()) << _T("\"}") << std::endl;
-	file.close();
+
 }
