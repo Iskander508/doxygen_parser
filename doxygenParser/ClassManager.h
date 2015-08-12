@@ -28,6 +28,7 @@ struct Method {
 	string returnType;
 	bool Const;
 	bool Virtual;
+	bool Override;
 
 	struct Param {
 		string type;

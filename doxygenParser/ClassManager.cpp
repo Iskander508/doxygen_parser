@@ -368,6 +368,7 @@ void ClassManager::ProcessDef(const Element& classDef)
 					method.returnType = member.GetElement(_T("type")).Text().str();
 					method.Const = member.GetAttribute(_T("const")) == _T("yes");
 					method.Virtual = member.GetAttribute(_T("virt")) != _T("non-virtual");
+					method.Override = (string(member.GetAttribute(_T("argsstring")).str()).find(_T("override")) != string::npos);
 					for (const auto& param : member.Elements(_T("param"))) {
 						Method::Param p;
 						p.name = param.GetElement(_T("declname")).Text().str();
@@ -559,6 +560,7 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 
 		longName << _T(")");
 		if (method.Const) longName << _T(" const");
+		if (method.Override) longName << _T(" override");
 
 		std::vector<string> classes;
 		classes.push_back(GetProtectionLevel(method.protectionLevel));
@@ -568,6 +570,15 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 			classes.push_back(_T("destructor"));
 		} else if (method.name.find(_T("operator")) != string::npos) {
 			classes.push_back(_T("operator"));
+		}
+		if (method.Const) {
+			classes.push_back(_T("const"));
+		}
+		if (method.Virtual) {
+			classes.push_back(_T("virtual"));
+		}
+		if (method.Override) {
+			classes.push_back(_T("override"));
 		}
 
 		file.WriteNode(method.doxygenId, method.name, longName.str(), _T("method"), _T("class"), nullptr, nullptr, classes);
