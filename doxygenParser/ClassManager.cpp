@@ -227,7 +227,7 @@ void ClassManager::WriteClassesJson()
 
 	JsonWriter file(m_outputDir + _T("\\classes.json"));
 	for (const auto& n: m_namespaces) {
-		file.WriteNode(n.first, n.second.name, n.first, _T("namespace"), n.second.parentId);
+		file.WriteNode(n.first, n.second.name, n.first, nullptr, _T("namespace"), n.second.parentId);
 	}
 	for (const auto& c: m_classes) {
 		const _TCHAR* type = nullptr;
@@ -236,7 +236,7 @@ void ClassManager::WriteClassesJson()
 		case Class::INTERFACE: type = _T("interface"); break;
 		case Class::CLASS: type = _T("class"); break;
 		}
-		file.WriteNode(c.first, c.second.name, c.first, type, c.second.namespaceId, c.second.data.doxygenId, c.second.data.filename);			
+		file.WriteNode(c.first, c.second.name, c.first, c.first, type, c.second.namespaceId, c.second.data.doxygenId, c.second.data.filename);			
 	}
 
 	for (const auto& c: m_classes) {			
@@ -523,44 +523,32 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 	JsonWriter file(m_outputDir + _T("\\") + c.data.doxygenId + _T(".json"), id);
 
 	std::set<string> collaborators;
-	file.WriteNode(_T("class"), id, id, _T("object"), nullptr, nullptr, c.data.filename);
+	file.WriteNode(_T("class"), id, id, nullptr, _T("object"), nullptr, nullptr, c.data.filename);
 	if (!c.parentId.empty()) {
-		file.WriteNode(c.parentId, m_classes.at(c.parentId).name, c.parentId, _T("parent"), nullptr, m_classes.at(c.parentId).data.doxygenId, m_classes.at(c.parentId).data.filename);
+		file.WriteNode(c.parentId, m_classes.at(c.parentId).name, c.parentId, c.parentId, _T("parent"), nullptr, m_classes.at(c.parentId).data.doxygenId, m_classes.at(c.parentId).data.filename);
 	}
 	for (const auto& connection: c.connections) {
-		file.WriteNode(connection.targetId, m_classes.at(connection.targetId).name, connection.targetId, _T("connection"), nullptr, m_classes.at(connection.targetId).data.doxygenId, m_classes.at(connection.targetId).data.filename);
+		file.WriteNode(connection.targetId, m_classes.at(connection.targetId).name, connection.targetId, connection.targetId, _T("connection"), nullptr, m_classes.at(connection.targetId).data.doxygenId, m_classes.at(connection.targetId).data.filename);
 	}
 	for (const auto& method: c.data.methods) {
-		std::basic_ostringstream<_TCHAR> longName; 
-		longName << GetProtectionLevel(method.protectionLevel) << _T(" ")
+		std::basic_ostringstream<_TCHAR> hoverName; 
+		hoverName << GetProtectionLevel(method.protectionLevel) << _T(" ")
 			<< (method.Virtual ? _T("virtual ") : _T(""))
 			<< (method.returnType.empty() ? _T("") : method.returnType + _T(" "))
 			<< method.name << _T("(");
-
-		if (!method.params.empty()) {
-			if (longName.str().size() < 50) {
-				std::basic_ostringstream<_TCHAR> params;
-				bool firstParam = true;
-				for (const auto& param: method.params) {
-					if (!firstParam) {
-						params << _T(", ");
-					}
-					firstParam = false;
-					params << param.type << _T(" ") << param.name;
+		{
+			bool firstParam = true;
+			for (const auto& param: method.params) {
+				if (!firstParam) {
+					hoverName << _T(", ");
 				}
-				if (params.str().size() > 30) {
-					longName << params.str().substr(0, 30) << _T("...");
-				} else {
-					longName << params.str();
-				}
-			} else {
-				longName << _T("...");
+				firstParam = false;
+				hoverName << param.type << _T(" ") << param.name;
 			}
 		}
-
-		longName << _T(")");
-		if (method.Const) longName << _T(" const");
-		if (method.Override) longName << _T(" override");
+		hoverName << _T(")");
+		if (method.Const) hoverName << _T(" const");
+		if (method.Override) hoverName << _T(" override");
 
 		std::vector<string> classes;
 		classes.push_back(GetProtectionLevel(method.protectionLevel));
@@ -581,7 +569,7 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 			classes.push_back(_T("override"));
 		}
 
-		file.WriteNode(method.doxygenId, method.name, longName.str(), _T("method"), _T("class"), nullptr, nullptr, classes);
+		file.WriteNode(method.doxygenId, method.name, method.name, hoverName.str(), _T("method"), _T("class"), nullptr, nullptr, classes);
 	}
 	for (const auto& member: c.data.members) {
 		std::basic_ostringstream<_TCHAR> longName;
@@ -590,7 +578,7 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 
 		std::vector<string> classes;
 		classes.push_back(GetProtectionLevel(member.protectionLevel));
-		file.WriteNode(member.name, member.name, longName.str(), _T("member"), _T("class"), nullptr, nullptr, classes);
+		file.WriteNode(member.name, member.name, member.name, longName.str(), _T("member"), _T("class"), nullptr, nullptr, classes);
 	}
 
 	// connections from other classes
@@ -609,7 +597,7 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 		collaborators.insert(usage.targetId);
 	}
 	for (const auto& collaborator: collaborators) {
-		file.WriteNode(collaborator, m_classes.at(collaborator).name, collaborator, _T("collaborator"), nullptr, m_classes.at(collaborator).data.doxygenId, m_classes.at(collaborator).data.filename);
+		file.WriteNode(collaborator, m_classes.at(collaborator).name, collaborator, collaborator, _T("collaborator"), nullptr, m_classes.at(collaborator).data.doxygenId, m_classes.at(collaborator).data.filename);
 	}
 
 

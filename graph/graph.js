@@ -17,6 +17,9 @@ var Graph = Graph || (function(){
 				if (nodes[i].hasOwnProperty('parent')){
 					newNode.parent = nodes[i].parent;
 				}
+				if (nodes[i].hasOwnProperty('hoverName')){
+					newNode.hoverName = nodes[i].hoverName;
+				}
 				if (nodes[i].hasOwnProperty('reference')){
 					newNode.reference = nodes[i].reference;
 				}
@@ -299,7 +302,7 @@ var Graph = Graph || (function(){
 						if (mouseButtonDown) return;
 						
                         var path = target.isNode() && target.data("filename") ? "&lt;"+ target.data("filename") +"&gt;\n" : "";
-						var sourceName = target.isNode() ? path + target.data("type") + "\n" + target.data("longName") : target.data("description");
+						var sourceName = target.isNode() ? path + target.data("type") + "\n" + (target.data("hoverName") ? target.data("hoverName") : target.data("longName")) : target.data("description");
 
                         $("#box").qtip({
                             content: {
@@ -319,7 +322,7 @@ var Graph = Graph || (function(){
                             hide: {
                                 fixed: true,
                                 event: false,
-                                inactive: 1000
+                                inactive: 2000
                             },
                             style: {
                                 classes: 'ui-tooltip-shadow ui-tooltip-youtube',

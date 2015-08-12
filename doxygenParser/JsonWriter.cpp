@@ -33,6 +33,9 @@ JsonWriter::~JsonWriter()
 			if (!node.second.longName.empty()) {
 				s << _T("\", \"longName\":\"") << escape(node.second.longName);
 			}
+			if (!node.second.hoverName.empty()) {
+				s << _T("\", \"hoverName\":\"") << escape(node.second.hoverName);
+			}
 			if (!node.second.reference.empty()) {
 				s << _T("\", \"reference\":\"") << escape(node.second.reference);
 			}
@@ -100,12 +103,13 @@ JsonWriter::~JsonWriter()
 	m_file.close();
 }
 
-void JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& type,
+void JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& hoverName, const stringRef& type,
 		const stringRef& parent, const stringRef& reference, const stringRef& filename, const std::vector<string>& classes)
 {
 	SNode node;
 	node.shortName = shortName.str();
 	node.longName = longName.str();
+	node.hoverName = hoverName.str();
 	node.type = type.str();
 	node.parent = parent.str();
 	node.reference = reference.str();
