@@ -58,6 +58,17 @@ var Graph = Graph || (function(){
 				elems.edges.push({data: newEdge, classes: edgeClasses});
 			}
 		
+            var edgeColor = function(color, otherProperties) {
+                otherProperties = otherProperties || {};
+                var colors = {
+						'line-color': color,
+						'text-background-color': color,
+						'target-arrow-color': color,
+						'source-arrow-color': color
+					  };
+                jQuery.extend(colors, otherProperties);
+                return colors;
+            };
 		
             $('#cy').cytoscape({
 				  layout: {
@@ -158,48 +169,20 @@ var Graph = Graph || (function(){
 						'source-arrow-shape': 'diamond'
 					  })
 					.selector('edge.member')
-					  .css({
-						'line-color': '#EDA1ED',
-						'text-background-color': '#EDA1ED',
+					  .css(edgeColor('#EDA1ED', {
                         'target-arrow-shape': 'none',
-						'source-arrow-color': '#EDA1ED',
                         'source-arrow-fill': 'filled'
-					  })
+					  }))
 					.selector('edge.override')
-					  .css({
-						'line-color': '#F5A45D',
-						'text-background-color': '#F5A45D',
-						'target-arrow-color': '#F5A45D',
-						'source-arrow-color': '#F5A45D'
-					  })
+					  .css(edgeColor('#F5A45D', null))
 					.selector('edge.derives')
-					  .css({
-						'line-color': '#A5A40D',
-						'text-background-color': '#A5A40D',
-						'target-arrow-color': '#A5A40D',
-						'source-arrow-color': '#A5A40D'
-					  })
+					  .css(edgeColor('#A5A40D', null))
 					.selector('edge.parent,edge.call')
-					  .css({
-						'line-color': '#A5040D',
-						'text-background-color': '#A5040D',
-						'target-arrow-color': '#A5040D',
-						'source-arrow-color': '#A5040D'
-					  })
+					  .css(edgeColor('#A5040D', null))
 					.selector('edge.access')
-					  .css({
-						'line-color': '#05A4DD',
-						'text-background-color': '#05A4DD',
-						'target-arrow-color': '#05A4DD',
-						'source-arrow-color': '#05A4DD'
-					  })
+					  .css(edgeColor('#05A4DD', null))
 					.selector('edge.use')
-					  .css({
-						'line-color': '#777777',
-						'text-background-color': '#777777',
-						'target-arrow-color': '#777777',
-						'source-arrow-color': '#777777'
-					  })
+					  .css(edgeColor('#777777', null))
                     .selector('edge.indirect,edge.uncertain')
 					  .css({
 						'line-style': 'dashed'
