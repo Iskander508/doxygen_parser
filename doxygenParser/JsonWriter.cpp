@@ -141,6 +141,14 @@ void JsonWriter::ClearOrphans()
 			ids.insert(node.first);
 		}
 
+		for (auto it = m_edges.begin(); it != m_edges.end();) {
+			if (ids.find(it->sourceId) == ids.end() || ids.find(it->targetId) == ids.end()) {
+				it = m_edges.erase(it);
+				continue;
+			}
+			++it;
+		}
+
 		for (const auto& edge: m_edges) {
 			ids.erase(edge.sourceId);
 			ids.erase(edge.targetId);
