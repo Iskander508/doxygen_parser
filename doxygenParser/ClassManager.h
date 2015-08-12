@@ -62,9 +62,12 @@ struct Class {
 	string doxygenId;
 	string filename; //!< declaration file
 	EType type;
+	bool templated;
 	std::vector<Inheritance> inheritance;
 	std::vector<Method> methods;
 	std::vector<Member> members;
+
+	Class() : templated(false), type(CLASS) {}
 };
 
 struct ClassManager {
@@ -107,10 +110,10 @@ private:
 
 	struct MemberUsage {
 		string sourceMethodId; //!< doxygenId of calling method
-		string connectionCode; //!< source line of usage
+		string connectionCode; //!< source line of usage/parameter/return value
 		string targetId; //!< either doxygen method id or member name
 		EMemberUsageType type;
-		bool certain; //!< whether the access is evident from the code
+		bool certain; //!< whether the access is evident from the 
 
 		MemberUsage() : certain(true) {}
 	};
@@ -120,9 +123,12 @@ private:
 		Class data;
 		string namespaceId;
 		string parentId;
-		std::vector<ClassConnection> connections;
+		std::vector<ClassConnection> connections; // connection to other classes (via inheritance or composition via members)
 		std::vector<MemberUsage> memberUsages;
 		std::map<string, string> methodOverrides; //!< method doxygenId -> interface id
+		bool utility; //!< flag whether this class is utility only
+
+		ClassEntry() : utility(false) {}
 	};
 
 private:

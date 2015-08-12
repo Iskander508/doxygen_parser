@@ -16,6 +16,8 @@ struct JsonWriter {
 	void WriteEdge(const stringRef& sourceId, const stringRef& targetId, const stringRef& type,
 		const stringRef& description = nullptr, const std::vector<string>& classes = std::vector<string>());
 
+	void ClearOrphans();
+
 private:
 	struct SNode {
 		string shortName;

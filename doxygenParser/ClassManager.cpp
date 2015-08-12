@@ -69,6 +69,8 @@ void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 		ids.insert(item.name);
 	}
 
+	std::vector<string> utilityClasses;
+
 	for (const auto& item: classes) {
 		ClassEntry newEntry;
 		newEntry.name = GetLastId(item.name);
@@ -78,6 +80,14 @@ void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 		// newEntry.parentId
 		if (ids.find(prefix) != ids.end()) {
 			newEntry.parentId = prefix;
+
+			// all member classes are treated as utility classes
+			newEntry.utility = true;
+		}
+
+		// all templated classes are treated as utility classes
+		if (item.templated)	{
+			newEntry.utility = true;
 		}
 
 		// newEntry.namespaceId
@@ -94,11 +104,22 @@ void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 		for (const auto& parent: item.inheritance) {
 			for (auto& connection: GetConnections(parent.classId, newEntry.namespaceId, ids, parent.protLevel, parent.Virtual)) {
 				newEntry.connections.push_back(connection);
+
+				// all directly inherited classes are treated as utility classes
+				if (connection.type == DIRECT_INHERITANCE) {
+					utilityClasses.push_back(parent.classId);
+				}
 			}
 		}
 
 		for (const auto& member: item.members) {
 			for (auto& connection: GetConnections(member.type, newEntry.namespaceId, ids, member.protectionLevel)) {
+				
+				// all classes directly (not as template parameter) as members are treated as utility classes
+				if (connection.type == DIRECT_INHERITANCE) {
+					utilityClasses.push_back(member.type);
+				}
+
 				connection.type = MEMBER_ITEM;
 				connection.connectionCode += _T(" ");
 				connection.connectionCode += member.name;
@@ -109,6 +130,12 @@ void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 
 
 		m_classes.insert(std::map<string, ClassEntry>::value_type(item.name, std::move(newEntry)));
+	}
+
+	for (const auto& id: utilityClasses) {
+		if (m_classes.find(id) != m_classes.end()) {
+			m_classes[id].utility = true;
+		}
 	}
 }
 
@@ -230,12 +257,16 @@ void ClassManager::WriteClassesJson()
 		file.WriteNode(n.first, n.second.name, n.first, nullptr, _T("namespace"), n.second.parentId);
 	}
 	for (const auto& c: m_classes) {
+		// strip the utility classes (NOT interfaces though)
+		if (c.second.utility && c.second.data.type != Class::INTERFACE) continue;
+
 		const _TCHAR* type = nullptr;
 		switch(c.second.data.type) {
 		case Class::STRUCT: type = _T("struct"); break;
 		case Class::INTERFACE: type = _T("interface"); break;
 		case Class::CLASS: type = _T("class"); break;
 		}
+
 		file.WriteNode(c.first, c.second.name, c.first, c.first, type, c.second.namespaceId, c.second.data.doxygenId, c.second.data.filename);			
 	}
 
@@ -267,6 +298,8 @@ void ClassManager::WriteClassesJson()
 			file.WriteEdge(c.first, c.second.parentId, _T("parent"));
 		}
 	}
+
+	file.ClearOrphans();
 }
 
 void ClassManager::CalculateMethods()
@@ -276,7 +309,7 @@ void ClassManager::CalculateMethods()
 		for (auto& method: c.second.data.methods) {
 			// Get Other types usages in return values & parameters
 			for (const auto& usable: usableClasses) {
-				const std::basic_regex<_TCHAR> regex((string(_T("(^|.*[^\\w])")) + usable.first + _T("($|[^\\w].*)")).c_str());
+				const std::basic_regex<_TCHAR> regex((string(_T("(^|.*[^\\w])")) + usable.first + _T("($|[^\\w:].*)")).c_str());
 				if (std::regex_match(method.returnType, regex)) {
 					MemberUsage usage;
 					usage.sourceMethodId = method.doxygenId;
@@ -284,6 +317,7 @@ void ClassManager::CalculateMethods()
 					usage.targetId = usable.second;
 					usage.type = CLASS_USAGE;
 					c.second.memberUsages.push_back(std::move(usage));
+					m_classes[usable.second].utility = true;
 				}
 
 				for (const auto& param: method.params) {
@@ -294,6 +328,7 @@ void ClassManager::CalculateMethods()
 						usage.targetId = usable.second;
 						usage.type = CLASS_USAGE;
 						c.second.memberUsages.push_back(std::move(usage));
+						m_classes[usable.second].utility = true;
 					}
 				}
 			}
@@ -329,6 +364,16 @@ void ClassManager::CalculateMethods()
 				}
 			}
 		}
+
+		// Find utility classes used as members of other classes
+		for (auto& member: c.second.data.members) {
+			for (const auto& usable: usableClasses) {
+				const std::basic_regex<_TCHAR> regex((string(_T("(^|.*[^\\w])")) + usable.first + _T("($|[^\\w:].*)")).c_str());
+				if (std::regex_match(member.type, regex)) {
+					m_classes[usable.second].utility = true;
+				}
+			}
+		}
 	}
 }
 
@@ -351,6 +396,7 @@ void ClassManager::ProcessDef(const Element& classDef)
 		std::wcout << _T("New class: ") << newClass.name << std::endl;
 
 		newClass.filename = classDef.GetElement(_T("location")).GetAttribute(_T("file")).str();
+		newClass.templated = classDef.GetElement(_T("templateparamlist"));
 
 		for (const auto& parent : classDef.Elements(_T("basecompoundref"))) {
 			Inheritance inheritance;

@@ -1,5 +1,6 @@
 #include "JsonWriter.h"
 #include <sstream>
+#include <set>
 #include "xml/structure.h"
 
 string escape(string s)
@@ -130,4 +131,35 @@ void JsonWriter::WriteEdge(const stringRef& sourceId, const stringRef& targetId,
 	edge.classes = classes;
 
 	m_edges.push_back(std::move(edge));
+}
+
+void JsonWriter::ClearOrphans()
+{
+	while(true) {
+		std::set<string> ids;
+		for (const auto& node: m_nodes) {
+			ids.insert(node.first);
+		}
+
+		for (const auto& edge: m_edges) {
+			ids.erase(edge.sourceId);
+			ids.erase(edge.targetId);
+		}
+
+		for (const auto& node: m_nodes) {
+			if (ids.find(node.first) == ids.end()) {
+				string parent = node.second.parent;
+				do {
+					ids.erase(parent);
+					parent = m_nodes[parent].parent;
+				} while (!parent.empty());
+			}
+		}
+
+		if (ids.empty()) break;
+
+		for (const auto& id: ids) {
+			m_nodes.erase(id);
+		}
+	}
 }
