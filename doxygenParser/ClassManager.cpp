@@ -23,7 +23,7 @@ void ClassManager::Initialize()
 {
 	CalculateNamespaces(initNamespaces);
 	CalculateClasses(initClasses);
-	CalculateMethodOverrides();
+	CalculateMethods();
 }
 
 void ClassManager::CalculateNamespaces(const std::vector<string>& namespaces)
@@ -269,10 +269,37 @@ void ClassManager::WriteClassesJson()
 	}
 }
 
-void ClassManager::CalculateMethodOverrides()
+void ClassManager::CalculateMethods()
 {
 	for (auto& c: m_classes) {
+		const std::map<string, string> usableClasses = GetUsableClasses(c.first, c.second.namespaceId);
 		for (auto& method: c.second.data.methods) {
+			// Get Other types usages in return values & parameters
+			for (const auto& usable: usableClasses) {
+				const std::basic_regex<_TCHAR> regex((string(_T("(^|.*[^\\w])")) + usable.first + _T("($|[^\\w].*)")).c_str());
+				if (std::regex_match(method.returnType, regex)) {
+					MemberUsage usage;
+					usage.sourceMethodId = method.doxygenId;
+					usage.connectionCode = string(_T("return type: ") + method.returnType);
+					usage.targetId = usable.second;
+					usage.type = CLASS_USAGE;
+					c.second.memberUsages.push_back(std::move(usage));
+				}
+
+				for (const auto& param: method.params) {
+					if (std::regex_match(param.type, regex)) {
+						MemberUsage usage;
+						usage.sourceMethodId = method.doxygenId;
+						usage.connectionCode = string(_T("param: ") + param.type + _T(" ") + param.name);
+						usage.targetId = usable.second;
+						usage.type = CLASS_USAGE;
+						c.second.memberUsages.push_back(std::move(usage));
+					}
+				}
+			}
+			
+
+			// Get overrides
 			if (!method.Virtual) continue;
 
 			std::vector<ClassConnection> connections;
@@ -393,26 +420,34 @@ void ClassManager::ProcessDef(const Element& classDef)
 	}
 }
 
+std::map<string, string> ClassManager::GetUsableClasses(const stringRef& classId, const stringRef& namespaceId) const
+{
+	std::map<string, string> usableClasses; // search string -> class id
+	for (auto& cl: m_classes) {
+		if (cl.first == classId.str()) continue;
+		if (cl.second.namespaceId == namespaceId.str()) {
+			usableClasses.insert(std::map<string, string>::value_type(cl.second.name, cl.first));
+		} else {
+			string otherId = cl.first;
+			for (const auto& part: split(classId.str(), _T("::"))) {
+				if (otherId.substr(0, part.size() + 2) == (part + _T("::"))) {
+					otherId = otherId.substr(part.size() + 2);
+				} else break;
+			}
+			usableClasses.insert(std::map<string, string>::value_type(otherId, cl.first));
+		}
+	}
+
+	return usableClasses;
+}
+
 void ClassManager::ProcessFileDef(const Element& fileDef)
 {
 	const stringRef location = fileDef.GetElement(_T("location")).GetAttribute(_T("file")).str();
 	for (auto& c: m_classes) {
 
-		std::map<string, string> usableClasses; // search string -> class id
-		for (auto& cl: m_classes) {
-			if (cl.first == c.first) continue;
-			if (cl.second.namespaceId == c.second.namespaceId) {
-				usableClasses.insert(std::map<string, string>::value_type(cl.second.name, cl.first));
-			} else {
-				string otherId = cl.first;
-				for (const auto& part: split(c.first, _T("::"))) {
-					if (otherId.substr(0, part.size() + 2) == (part + _T("::"))) {
-						otherId = otherId.substr(part.size() + 2);
-					} else break;
-				}
-				usableClasses.insert(std::map<string, string>::value_type(otherId, cl.first));
-			}
-		}
+		 // search string -> class id
+		const std::map<string, string> usableClasses = GetUsableClasses(c.first, c.second.namespaceId);
 
 		for (const auto& method: c.second.data.methods) {
 			if (method.locationFile != location.str()) continue;

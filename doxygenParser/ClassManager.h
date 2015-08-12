@@ -128,7 +128,7 @@ private:
 private:
 	void CalculateNamespaces(const std::vector<string>& namespaces);
 	void CalculateClasses(const std::vector<Class>& classes);
-	void CalculateMethodOverrides();
+	void CalculateMethods();
 	void ClearOrphanItems();
 
 	static string GetLastId(const string& name);
@@ -136,6 +136,9 @@ private:
 
 	std::vector<ClassConnection> GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel, bool Virtual = false) const;
 	void WriteSingleClassJson(const stringRef& id) const;
+
+	// search string -> class id
+	std::map<string, string> GetUsableClasses(const stringRef& classId, const stringRef& namespaceId) const;
 
 private:
 	std::map<string, Namespace> m_namespaces; //!< id -> Namespace
