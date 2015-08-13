@@ -284,12 +284,12 @@ var Graph = Graph || (function(){
 						if (target.isNode() && target.isParent()) return;
 						if (mouseButtonDown) return;
 						
-                        var path = target.isNode() && target.data("filename") ? "&lt;"+ target.data("filename") +"&gt;\n" : "";
+                        var path = target.isNode() && target.data("filename") ? "<"+ target.data("filename") +">\n" : "";
 						var sourceName = target.isNode() ? path + target.data("type") + "\n" + (target.data("hoverName") ? target.data("hoverName") : target.data("longName")) : target.data("description");
 
                         $("#box").qtip({
                             content: {
-                                text: sourceName
+                                text: $('<div/>').text(sourceName).html()
                             },
                             show: {
                                 delay: 0,
