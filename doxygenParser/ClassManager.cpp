@@ -258,13 +258,15 @@ void ClassManager::WriteClassesJson()
 	}
 	for (const auto& c: m_classes) {
 		// strip the utility classes (NOT interfaces though)
-		if (c.second.utility && c.second.data.type != Class::INTERFACE) continue;
+		if (c.second.utility && !c.second.data.interface) continue;
 
 		const _TCHAR* type = nullptr;
 		switch(c.second.data.type) {
 		case Class::STRUCT: type = _T("struct"); break;
-		case Class::INTERFACE: type = _T("interface"); break;
 		case Class::CLASS: type = _T("class"); break;
+		}
+		if (c.second.data.interface) {
+			type = _T("interface");
 		}
 
 		file.WriteNode(c.first, c.second.name, c.first, c.first, type, c.second.namespaceId, c.second.data.doxygenId, c.second.data.filename);			
@@ -386,11 +388,7 @@ void ClassManager::ProcessDef(const Element& classDef)
 	} else if (kind == _T("class") || kind == _T("struct")) {
 		Class newClass;
 		newClass.doxygenId = classDef.GetAttribute(_T("id")).str();
-		if (classDef.GetAttribute(_T("abstract")) == _T("yes")) {
-			newClass.type = Class::INTERFACE;
-		} else {
-			newClass.type = kind == _T("class") ? Class::CLASS : Class::STRUCT;
-		}
+		newClass.type = kind == _T("class") ? Class::CLASS : Class::STRUCT;
 
 		newClass.name = classDef.GetElement(_T("compoundname")).Text().str();
 		std::wcout << _T("New class: ") << newClass.name << std::endl;
@@ -452,6 +450,11 @@ void ClassManager::ProcessDef(const Element& classDef)
 					method.locationFile = location.GetAttribute(_T("bodyfile")).str();
 					method.bodyBeginLine = location.GetAttribute(_T("bodystart")).str();
 					method.bodyEndLine = location.GetAttribute(_T("bodyend")).str();
+
+					if (!newClass.interface && method.Virtual && method.protectionLevel == PUBLIC && classDef.GetAttribute(_T("abstract")) == _T("yes")) {
+						newClass.interface = true;
+					}
+
 					newClass.methods.push_back(std::move(method));
 				} else if (kind == _T("variable")) {
 					Member m;

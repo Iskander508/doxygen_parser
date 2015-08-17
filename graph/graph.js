@@ -286,7 +286,8 @@ var Graph = Graph || (function(){
 						
                         var path = target.isNode() && target.data("filename") ? "<"+ target.data("filename") +">\n" : "";
 						var sourceName = target.isNode() ? path + target.data("type") + "\n" + (target.data("hoverName") ? target.data("hoverName") : target.data("longName")) : target.data("description");
-
+						if (sourceName.length == 0) return;
+						
                         $("#box").qtip({
                             content: {
                                 text: $('<div/>').text(sourceName).html()

@@ -53,7 +53,6 @@ struct Inheritance {
 
 struct Class {
 	enum EType {
-		INTERFACE,
 		STRUCT,
 		CLASS
 	};
@@ -63,11 +62,12 @@ struct Class {
 	string filename; //!< declaration file
 	EType type;
 	bool templated;
+	bool interface;
 	std::vector<Inheritance> inheritance;
 	std::vector<Method> methods;
 	std::vector<Member> members;
 
-	Class() : templated(false), type(CLASS) {}
+	Class() : templated(false), interface(false), type(CLASS) {}
 };
 
 struct ClassManager {
