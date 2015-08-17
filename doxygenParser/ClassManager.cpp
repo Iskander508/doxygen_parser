@@ -681,7 +681,16 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 		collaborators.insert(usage.targetId);
 	}
 	for (const auto& collaborator: collaborators) {
-		file.WriteNode(collaborator, m_classes.at(collaborator).name, collaborator, collaborator, _T("collaborator"), nullptr, m_classes.at(collaborator).data.doxygenId, m_classes.at(collaborator).data.filename);
+		const _TCHAR* type = nullptr;
+		switch(m_classes.at(collaborator).data.type) {
+		case Class::CLASS: type = _T("class"); break;
+		case Class::STRUCT: type = _T("struct"); break;
+		}
+		if (m_classes.at(collaborator).data.interface) {
+			type = _T("interface");
+		}
+
+		file.WriteNode(collaborator, m_classes.at(collaborator).name, collaborator, collaborator, type, nullptr, m_classes.at(collaborator).data.doxygenId, m_classes.at(collaborator).data.filename);
 	}
 
 
