@@ -256,9 +256,7 @@ void ClassManager::WriteClassesJson()
 	for (const auto& n: m_namespaces) {
 		file.WriteNode(n.first, n.second.name, n.first, nullptr, _T("namespace"), n.second.parentId);
 	}
-	for (const auto& c: m_classes) {
-		// strip the utility classes (NOT interfaces though)
-		if (c.second.utility && !c.second.data.interface) continue;
+	for (auto& c: m_classes) {
 
 		const _TCHAR* type = nullptr;
 		switch(c.second.data.type) {
@@ -266,8 +264,12 @@ void ClassManager::WriteClassesJson()
 		case Class::CLASS: type = _T("class"); break;
 		}
 		if (c.second.data.interface) {
+			c.second.utility = false; // interfaces are not utilities
 			type = _T("interface");
 		}
+
+		// strip the utility classes
+		if (c.second.utility) continue;
 
 		file.WriteNode(c.first, c.second.name, c.first, c.first, type, c.second.namespaceId, c.second.data.doxygenId, c.second.data.filename);			
 	}
@@ -612,7 +614,20 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 		file.WriteNode(c.parentId, m_classes.at(c.parentId).name, c.parentId, c.parentId, _T("parent"), nullptr, m_classes.at(c.parentId).data.doxygenId, m_classes.at(c.parentId).data.filename);
 	}
 	for (const auto& connection: c.connections) {
-		file.WriteNode(connection.targetId, m_classes.at(connection.targetId).name, connection.targetId, connection.targetId, _T("connection"), nullptr, m_classes.at(connection.targetId).data.doxygenId, m_classes.at(connection.targetId).data.filename);
+		const _TCHAR* type = nullptr;
+		switch(m_classes.at(connection.targetId).data.type) {
+		case Class::CLASS: type = _T("class"); break;
+		case Class::STRUCT: type = _T("struct"); break;
+		}
+		if (m_classes.at(connection.targetId).data.interface) {
+			type = _T("interface");
+		}
+
+		std::vector<string> classes;
+		if (m_classes.at(connection.targetId).utility) {
+			classes.push_back(_T("utility"));
+		}
+		file.WriteNode(connection.targetId, m_classes.at(connection.targetId).name, connection.targetId, connection.targetId, type, nullptr, m_classes.at(connection.targetId).data.doxygenId, m_classes.at(connection.targetId).data.filename, classes);
 	}
 	for (const auto& method: c.data.methods) {
 		std::basic_ostringstream<_TCHAR> hoverName; 
@@ -690,7 +705,11 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 			type = _T("interface");
 		}
 
-		file.WriteNode(collaborator, m_classes.at(collaborator).name, collaborator, collaborator, type, nullptr, m_classes.at(collaborator).data.doxygenId, m_classes.at(collaborator).data.filename);
+		std::vector<string> classes;
+		if (m_classes.at(collaborator).utility) {
+			classes.push_back(_T("utility"));
+		}
+		file.WriteNode(collaborator, m_classes.at(collaborator).name, collaborator, collaborator, type, nullptr, m_classes.at(collaborator).data.doxygenId, m_classes.at(collaborator).data.filename, classes);
 	}
 
 

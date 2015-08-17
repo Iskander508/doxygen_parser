@@ -6,6 +6,7 @@
 
 struct FileSystem {
 	static std::vector<string> GetFiles(const stringRef& directory, const stringRef& extension = nullptr);
+	static bool CreateRecursiveDirectory(const stringRef& filepath);
 };
 
 #endif // FILE_SYSTEM_H__

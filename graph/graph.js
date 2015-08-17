@@ -120,6 +120,11 @@ var Graph = Graph || (function(){
 						'border-width': 0,
 						'text-halign': 'right'
 					  })
+					.selector('node.utility')
+					  .css({
+                        'z-index': 2,
+						'opacity': 0.8
+					  })
 					.selector('node.class')
 					  .css({
 						'background-color': '#D5D40D'

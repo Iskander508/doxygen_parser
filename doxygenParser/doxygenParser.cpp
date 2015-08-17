@@ -36,9 +36,11 @@ void printElement(const Element& element, const int indent = 0) {
 int _tmain(int argc, _TCHAR* argv[])
 {
 
-	if (argc == 2) {
+	if (argc >= 2) {
 
-		ClassManager classManager(argv[1]);
+		const _TCHAR* outputDir = argc > 2 ? argv[2] : argv[1];
+		FileSystem::CreateRecursiveDirectory(string(outputDir) + _T("\\"));
+		ClassManager classManager(outputDir);
 
 		std::wcout << _T("Fetching classes...") << std::endl;
 		for (const auto& file : FileSystem::GetFiles(string(argv[1]), _T("xml"))) {

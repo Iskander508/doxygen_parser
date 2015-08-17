@@ -1,5 +1,6 @@
 #include "FileSystem.h"
 #include <windows.h>
+#include <Shlwapi.h>
 
 std::vector<string> FileSystem::GetFiles(const stringRef& directory, const stringRef& extension) {
 
@@ -27,3 +28,23 @@ std::vector<string> FileSystem::GetFiles(const stringRef& directory, const strin
 
 	return result;
 }
+
+bool FileSystem::CreateRecursiveDirectory(const stringRef& filepath)
+{
+    bool result = false;
+    wchar_t path_copy[MAX_PATH] = {0};
+	wcscat_s(path_copy, MAX_PATH, filepath.str());
+    std::vector<std::wstring> path_collection;
+
+    for(int level=0; PathRemoveFileSpec(path_copy); level++)
+    {
+        path_collection.push_back(path_copy);
+    }
+    for(int i=path_collection.size()-1; i >= 0; i--)
+    {
+        if(!PathIsDirectory(path_collection[i].c_str()))
+            if(CreateDirectory(path_collection[i].c_str(), NULL))
+                result = true;
+    }
+    return result;
+};
