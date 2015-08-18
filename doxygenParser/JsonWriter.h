@@ -11,7 +11,7 @@ struct JsonWriter {
 	~JsonWriter();
 
 	void WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& hoverName, const stringRef& type,
-		const stringRef& parent = nullptr, const stringRef& reference = nullptr, const stringRef& filename = nullptr,
+		const stringRef& parent = nullptr, const stringRef& reference = nullptr, const stringRef& filename = nullptr, const stringRef& description = nullptr,
 		const std::vector<string>& classes = std::vector<string>());
 	void WriteEdge(const stringRef& sourceId, const stringRef& targetId, const stringRef& type,
 		const stringRef& description = nullptr, const std::vector<string>& classes = std::vector<string>());
@@ -27,6 +27,7 @@ private:
 		string parent;
 		string reference;
 		string filename;
+		string description;
 		std::vector<string> classes;
 	};
 

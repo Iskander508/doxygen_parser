@@ -19,12 +19,14 @@ enum EProtectionLevel {
 struct Member {
 	string name;
 	string type;
+	string description;
 	EProtectionLevel protectionLevel;
 };
 
 struct Method {
 	string name;
 	string doxygenId;
+	string description;
 	string returnType;
 	bool Const;
 	bool Virtual;
@@ -60,6 +62,7 @@ struct Class {
 	string name;
 	string doxygenId;
 	string filename; //!< declaration file
+	string description;
 	EType type;
 	bool templated;
 	bool interface;

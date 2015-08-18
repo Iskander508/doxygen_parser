@@ -43,6 +43,9 @@ JsonWriter::~JsonWriter()
 			if (!node.second.filename.empty()) {
 				s << _T("\", \"filename\":\"") << escape(node.second.filename);
 			}
+			if (!node.second.description.empty()) {
+				s << _T("\", \"description\":\"") << escape(node.second.description);
+			}
 			if (!node.second.classes.empty()) {
 				s << _T("\", \"classes\":[");
 				bool first = true;
@@ -105,7 +108,7 @@ JsonWriter::~JsonWriter()
 }
 
 void JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, const stringRef& longName, const stringRef& hoverName, const stringRef& type,
-		const stringRef& parent, const stringRef& reference, const stringRef& filename, const std::vector<string>& classes)
+		const stringRef& parent, const stringRef& reference, const stringRef& filename, const stringRef& description, const std::vector<string>& classes)
 {
 	SNode node;
 	node.shortName = shortName.str();
@@ -115,6 +118,7 @@ void JsonWriter::WriteNode(const stringRef& id, const stringRef& shortName, cons
 	node.parent = parent.str();
 	node.reference = reference.str();
 	node.filename = filename.str();
+	node.description = description.str();
 	node.classes = classes;
 
 	m_nodes.insert(std::map<string, SNode>::value_type(id.str(), std::move(node)));
