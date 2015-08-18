@@ -170,10 +170,20 @@ std::vector<ClassManager::ClassConnection> ClassManager::GetConnections(const st
 				connection.type = INDIRECT_INHERITANCE;
 				connection.targetId = defItem;
 				result.push_back(connection);
-			} else if (ids.find(namespaceId + _T("::") + defItem) != ids.end()) {
-				connection.type = INDIRECT_INHERITANCE;
-				connection.targetId = namespaceId + _T("::") + defItem;
-				result.push_back(connection);
+			} else {
+				string namespaceStr = namespaceId;
+				while(!namespaceStr.empty()) {
+					if (ids.find(namespaceStr + _T("::") + defItem) != ids.end()) {
+						connection.type = INDIRECT_INHERITANCE;
+						connection.targetId = namespaceStr + _T("::") + defItem;
+						result.push_back(connection);
+						break;
+					}
+
+					const std::size_t pos = namespaceStr.rfind(_T("::"));
+					if (pos == string::npos) break;
+					namespaceStr = namespaceStr.substr(0, pos);
+				}
 			}
 		}
 	}
