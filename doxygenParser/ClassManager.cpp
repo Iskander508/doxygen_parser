@@ -85,10 +85,10 @@ void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 			newEntry.utility = true;
 		}
 
-		// all templated classes are treated as utility classes
+		/*// all templated classes are treated as utility classes
 		if (item.templated)	{
 			newEntry.utility = true;
-		}
+		}*/
 
 		// newEntry.namespaceId
 		while (!prefix.empty()) {
@@ -107,7 +107,7 @@ void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 
 				// all directly inherited classes are treated as utility classes
 				if (connection.type == DIRECT_INHERITANCE) {
-					utilityClasses.push_back(parent.classId);
+					utilityClasses.push_back(connection.targetId);
 				}
 			}
 		}
@@ -116,7 +116,7 @@ void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 			for (auto& connection: GetConnections(member.type, newEntry.namespaceId, ids, member.protectionLevel)) {
 				
 				// all classes directly (not as template parameter) as members are treated as utility classes
-				if (connection.type == DIRECT_INHERITANCE) {
+				if (connection.type == DIRECT_INHERITANCE && member.type != newEntry.parentId) {
 					utilityClasses.push_back(member.type);
 				}
 
@@ -156,36 +156,41 @@ std::vector<ClassManager::ClassConnection> ClassManager::GetConnections(const st
 		connection.connectionCode = _T("virtual ");
 	}
 	connection.connectionCode += type;
-	if (ids.find(type) != ids.end()) {
-		connection.type = DIRECT_INHERITANCE;
-		connection.targetId = type;
-		result.push_back(connection);
-	} else if (ids.find(namespaceId + _T("::") + type) != ids.end()) {
-		connection.type = DIRECT_INHERITANCE;
-		connection.targetId = namespaceId + _T("::") + type;
-		result.push_back(connection);
-	} else {
-		for (const auto& defItem: split(type, _T(",<> \t&*"))) {
-			if (ids.find(defItem) != ids.end()) {
-				connection.type = INDIRECT_INHERITANCE;
-				connection.targetId = defItem;
-				result.push_back(connection);
-			} else {
-				string namespaceStr = namespaceId;
-				while(!namespaceStr.empty()) {
-					if (ids.find(namespaceStr + _T("::") + defItem) != ids.end()) {
-						connection.type = INDIRECT_INHERITANCE;
-						connection.targetId = namespaceStr + _T("::") + defItem;
-						result.push_back(connection);
-						break;
-					}
 
-					const std::size_t pos = namespaceStr.rfind(_T("::"));
-					if (pos == string::npos) break;
-					namespaceStr = namespaceStr.substr(0, pos);
+	const std::size_t templateDelimiter = type.find_first_of(_T('<'));
+	string directType = (templateDelimiter == string::npos) ? type : type.substr(0, templateDelimiter);
+	string indirectTypes = (templateDelimiter == string::npos) ? string() : type.substr(templateDelimiter + 1);
+
+
+	connection.type = DIRECT_INHERITANCE;
+	if (ids.find(directType) != ids.end()) {
+		connection.targetId = directType;
+		result.push_back(connection);
+	} else if (ids.find(namespaceId + _T("::") + directType) != ids.end()) {
+		connection.targetId = namespaceId + _T("::") + directType;
+		result.push_back(connection);
+	}
+
+	connection.type = INDIRECT_INHERITANCE;
+	for (const auto& defItem: split(indirectTypes, _T(",<> \t&*"))) {
+		if (ids.find(defItem) != ids.end()) {
+			connection.targetId = defItem;
+			result.push_back(connection);
+		} else {
+			string namespaceStr = namespaceId;
+			while(!namespaceStr.empty()) {
+				if (ids.find(namespaceStr + _T("::") + defItem) != ids.end()) {
+					connection.targetId = namespaceStr + _T("::") + defItem;
+					result.push_back(connection);
+					break;
 				}
+
+				const std::size_t pos = namespaceStr.rfind(_T("::"));
+				if (pos == string::npos) break;
+				namespaceStr = namespaceStr.substr(0, pos);
 			}
 		}
+
 	}
 
 	return result;
@@ -331,7 +336,9 @@ void ClassManager::CalculateMethods()
 					usage.targetId = usable.second;
 					usage.type = CLASS_USAGE;
 					c.second.memberUsages.push_back(std::move(usage));
-					m_classes[usable.second].utility = true;
+					if (method.protectionLevel != PRIVATE) {
+						m_classes[usable.second].utility = true;
+					}
 				}
 
 				for (const auto& param: method.params) {
@@ -342,7 +349,9 @@ void ClassManager::CalculateMethods()
 						usage.targetId = usable.second;
 						usage.type = CLASS_USAGE;
 						c.second.memberUsages.push_back(std::move(usage));
-						m_classes[usable.second].utility = true;
+						if (method.protectionLevel != PRIVATE) {
+							m_classes[usable.second].utility = true;
+						}
 					}
 				}
 			}
@@ -383,7 +392,7 @@ void ClassManager::CalculateMethods()
 		for (auto& member: c.second.data.members) {
 			for (const auto& usable: usableClasses) {
 				const std::basic_regex<_TCHAR> regex((string(_T("(^|.*[^\\w])")) + usable.first + _T("($|[^\\w:].*)")).c_str());
-				if (std::regex_match(member.type, regex)) {
+				if (std::regex_match(member.type, regex) && usable.second != c.second.parentId) {
 					m_classes[usable.second].utility = true;
 				}
 			}
