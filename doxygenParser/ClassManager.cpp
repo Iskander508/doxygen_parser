@@ -137,6 +137,35 @@ void ClassManager::CalculateClasses(const std::vector<Class>& classes)
 			m_classes[id].utility = true;
 		}
 	}
+
+	for (auto& c: m_classes) {
+		std::vector<ClassConnection> newConnections;
+		for (auto& connection: c.second.connections) {
+			if (connection.type == DIRECT_INHERITANCE) {
+				string parentId;
+				{
+					string tmpCurClass = connection.targetId;
+					do {
+						const auto it = m_classes.find(tmpCurClass);
+						if (it != m_classes.end()) {
+							if (tmpCurClass != connection.targetId) {
+								parentId = tmpCurClass;
+							}
+							tmpCurClass = it->second.parentId;
+						}
+					} while(!tmpCurClass.empty());
+				}				
+
+				if (!parentId.empty() && !m_classes[parentId].utility && !m_classes[parentId].data.interface) {
+					ClassConnection indirectConnection = connection;
+					indirectConnection.type = INDIRECT_INHERITANCE;
+					indirectConnection.targetId = parentId;
+					newConnections.push_back(std::move(indirectConnection));
+				}
+			}
+		}
+		c.second.connections.insert(c.second.connections.end(), newConnections.begin(), newConnections.end());
+	}
 }
 
 std::vector<ClassManager::ClassConnection> ClassManager::GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel, bool Virtual) const
@@ -161,14 +190,25 @@ std::vector<ClassManager::ClassConnection> ClassManager::GetConnections(const st
 	string directType = (templateDelimiter == string::npos) ? type : type.substr(0, templateDelimiter);
 	string indirectTypes = (templateDelimiter == string::npos) ? string() : type.substr(templateDelimiter + 1);
 
-
 	connection.type = DIRECT_INHERITANCE;
-	if (ids.find(directType) != ids.end()) {
-		connection.targetId = directType;
-		result.push_back(connection);
-	} else if (ids.find(namespaceId + _T("::") + directType) != ids.end()) {
-		connection.targetId = namespaceId + _T("::") + directType;
-		result.push_back(connection);
+	for (const auto& defItem: split(directType, _T(" \t&*"))) {
+		if (ids.find(defItem) != ids.end()) {
+			connection.targetId = defItem;
+			result.push_back(connection);
+		} else {
+			string namespaceStr = namespaceId;
+			while(!namespaceStr.empty()) {
+				if (ids.find(namespaceStr + _T("::") + defItem) != ids.end()) {
+					connection.targetId = namespaceStr + _T("::") + defItem;
+					result.push_back(connection);
+					break;
+				}
+
+				const std::size_t pos = namespaceStr.rfind(_T("::"));
+				if (pos == string::npos) break;
+				namespaceStr = namespaceStr.substr(0, pos);
+			}
+		}
 	}
 
 	connection.type = INDIRECT_INHERITANCE;
