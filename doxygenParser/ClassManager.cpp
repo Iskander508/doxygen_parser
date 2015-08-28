@@ -303,13 +303,18 @@ void ClassManager::ClearOrphanItems()
 	} while (erased);
 }
 
+string GetNamespaceFileName(const stringRef& namespaceId)
+{
+	return string(_T("namespace_")) + replaceAll(namespaceId.str(), _T("::"), _T("_"));
+}
+
 void ClassManager::WriteClassesJson()
 {
 	ClearOrphanItems();
 
 	JsonWriter file(m_outputDir + _T("\\classes.json"));
 	for (const auto& n: m_namespaces) {
-		file.WriteNode(n.first, n.second.name, n.first, nullptr, _T("namespace"), n.second.parentId);
+		file.WriteNode(n.first, n.second.name, n.first, nullptr, _T("namespace"), n.second.parentId, GetNamespaceFileName(n.first));
 	}
 	for (auto& c: m_classes) {
 
@@ -665,6 +670,13 @@ void ClassManager::WriteSingleClassJsons() const
 	}
 }
 
+void ClassManager::WriteNamespaceJsons() const
+{
+	for (const auto& n: m_namespaces) {
+		WriteNamespaceJson(n.first);
+	}
+}
+
 void ClassManager::WriteSingleClassJson(const stringRef& id) const
 {
 	const auto& c = m_classes.at(id.str());
@@ -850,4 +862,76 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 		}
 	}
 
+}
+
+void ClassManager::WriteNamespaceJson(const stringRef& namespaceId) const
+{
+	JsonWriter file(m_outputDir + _T("\\") + GetNamespaceFileName(namespaceId) + _T(".json"));
+	
+	std::set<string> namespaces;
+	namespaces.insert(namespaceId.str());
+	{
+		bool newAdded = true;
+		while(newAdded) {
+			newAdded = false;
+			for (const auto& n: m_namespaces) {
+				if (!namespaces.count(n.first) && namespaces.count(n.second.parentId)) {
+					namespaces.insert(n.first);
+					newAdded = true;
+				}
+			}
+		}
+	}
+
+	for (const auto& n: namespaces) {
+		file.WriteNode(n, m_namespaces.at(n).name, n, nullptr, _T("namespace"), m_namespaces.at(n).parentId, GetNamespaceFileName(n));
+	}
+	for (const auto& c: m_classes) {
+		if (!namespaces.count(c.second.namespaceId)) {
+			continue;
+		}
+
+		const _TCHAR* type = nullptr;
+		switch(c.second.data.type) {
+		case Class::STRUCT: type = _T("struct"); break;
+		case Class::CLASS: type = _T("class"); break;
+		}
+		if (c.second.data.interface) {
+			type = _T("interface");
+		}
+
+		// strip the utility classes
+		if (c.second.utility) continue;
+
+		file.WriteNode(c.first, c.second.name, c.first, c.first, type, c.second.namespaceId, c.second.data.doxygenId, c.second.data.filename, c.second.data.description);
+
+		for (const auto& connection: c.second.connections) {
+
+			const _TCHAR* type = nullptr;
+			switch (connection.type)
+			{
+			case MEMBER_ITEM: type = _T("member"); break;
+			default: type = _T("derives"); break;
+			}
+
+			std::vector<string> classes;
+			switch (connection.type)
+			{
+			case DIRECT_INHERITANCE: classes.push_back(_T("direct")); break;
+			case INDIRECT_INHERITANCE: classes.push_back(_T("indirect")); break;
+			}
+			if (connection.Virtual)	{
+				classes.push_back(_T("virtual"));
+			}
+			classes.push_back(GetProtectionLevel(connection.protectionLevel));
+
+			file.WriteEdge(c.first, connection.targetId, type, connection.connectionCode, classes);
+		}
+
+		if (!c.second.parentId.empty()) {
+			file.WriteEdge(c.first, c.second.parentId, _T("parent"));
+		}
+	}
+
+	file.ClearOrphans();
 }

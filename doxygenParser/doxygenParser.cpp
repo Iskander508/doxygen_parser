@@ -83,6 +83,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		std::wcout << _T("Writing json output...") << std::endl;
 		classManager.WriteClassesJson();
+		classManager.WriteNamespaceJsons();
 		classManager.WriteSingleClassJsons();
 
 		std::wcout << _T("Done.") << std::endl;
