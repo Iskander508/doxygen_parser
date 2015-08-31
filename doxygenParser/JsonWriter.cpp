@@ -28,7 +28,7 @@ JsonWriter::~JsonWriter()
 			s	<< _T("{\"id\":\"") << escape(node.first)
 				<< _T("\", \"shortName\":\"") << escape(node.second.shortName)
 				<< _T("\", \"type\":\"") << escape(node.second.type);
-			if (!node.second.parent.empty()) {
+			if (!node.second.parent.empty() && m_nodes.count(node.second.parent)) {
 				s << _T("\", \"parent\":\"") << escape(node.second.parent);
 			}
 			if (!node.second.longName.empty()) {
@@ -163,7 +163,9 @@ void JsonWriter::ClearOrphans()
 				string parent = node.second.parent;
 				do {
 					ids.erase(parent);
-					parent = m_nodes[parent].parent;
+					if (m_nodes.count(parent)) {
+						parent = m_nodes.at(parent).parent;
+					} else break;
 				} while (!parent.empty());
 			}
 		}

@@ -303,9 +303,9 @@ void ClassManager::ClearOrphanItems()
 	} while (erased);
 }
 
-string GetNamespaceFileName(const stringRef& namespaceId)
+string GetNamespaceFileName(const stringRef& namespaceId, bool external = true)
 {
-	return string(_T("namespace_")) + replaceAll(namespaceId.str(), _T("::"), _T("_"));
+	return string(_T("namespace_")) + (external ? _T("external_") : _T("internal_")) + replaceAll(namespaceId.str(), _T("::"), _T("_"));
 }
 
 void ClassManager::WriteClassesJson()
@@ -673,7 +673,8 @@ void ClassManager::WriteSingleClassJsons() const
 void ClassManager::WriteNamespaceJsons() const
 {
 	for (const auto& n: m_namespaces) {
-		WriteNamespaceJson(n.first);
+		WriteNamespaceJson(n.first, true);
+		WriteNamespaceJson(n.first, false);
 	}
 }
 
@@ -864,9 +865,9 @@ void ClassManager::WriteSingleClassJson(const stringRef& id) const
 
 }
 
-void ClassManager::WriteNamespaceJson(const stringRef& namespaceId) const
+void ClassManager::WriteNamespaceJson(const stringRef& namespaceId, bool external) const
 {
-	JsonWriter file(m_outputDir + _T("\\") + GetNamespaceFileName(namespaceId) + _T(".json"));
+	JsonWriter file(m_outputDir + _T("\\") + GetNamespaceFileName(namespaceId, external) + _T(".json"));
 	
 	std::set<string> namespaces;
 	namespaces.insert(namespaceId.str());
@@ -883,13 +884,34 @@ void ClassManager::WriteNamespaceJson(const stringRef& namespaceId) const
 		}
 	}
 
-	for (const auto& n: namespaces) {
-		file.WriteNode(n, m_namespaces.at(n).name, n, nullptr, _T("namespace"), m_namespaces.at(n).parentId, GetNamespaceFileName(n));
+
+	std::set<string> insideClasses;
+	std::set<string> outsideClasses;
+	for (const auto& c: m_classes) {
+		if (namespaces.count(c.second.namespaceId)) {
+			insideClasses.insert(c.first);
+			for (const auto& connection: c.second.connections) {
+				outsideClasses.insert(connection.targetId);
+			}
+		}
 	}
 	for (const auto& c: m_classes) {
-		if (!namespaces.count(c.second.namespaceId)) {
+		for (const auto& connection: c.second.connections) {
+			if (insideClasses.count(connection.targetId)) {
+				outsideClasses.insert(c.first);
+				namespaces.insert(c.second.namespaceId);
+			}
+		}
+	}
+
+
+	for (const auto& c: m_classes) {
+		if (!insideClasses.count(c.first) && (!external || !outsideClasses.count(c.first))) {
 			continue;
 		}
+
+		// strip the utility classes
+		if (c.second.utility) continue;
 
 		const _TCHAR* type = nullptr;
 		switch(c.second.data.type) {
@@ -899,10 +921,6 @@ void ClassManager::WriteNamespaceJson(const stringRef& namespaceId) const
 		if (c.second.data.interface) {
 			type = _T("interface");
 		}
-
-		// strip the utility classes
-		if (c.second.utility) continue;
-
 		file.WriteNode(c.first, c.second.name, c.first, c.first, type, c.second.namespaceId, c.second.data.doxygenId, c.second.data.filename, c.second.data.description);
 
 		for (const auto& connection: c.second.connections) {
@@ -930,6 +948,12 @@ void ClassManager::WriteNamespaceJson(const stringRef& namespaceId) const
 
 		if (!c.second.parentId.empty()) {
 			file.WriteEdge(c.first, c.second.parentId, _T("parent"));
+		}
+	}
+
+	for (auto& n: namespaces) {
+		if (m_namespaces.count(n)) {
+			file.WriteNode(n, m_namespaces.at(n).name, n, nullptr, _T("namespace"), m_namespaces.at(n).parentId, !external && namespaceId == n.c_str() ? _T("") : GetNamespaceFileName(n, namespaceId != n.c_str()));
 		}
 	}
 

@@ -146,7 +146,7 @@ private:
 
 	std::vector<ClassConnection> GetConnections(const string& type, const string& namespaceId, const std::set<string>& ids, EProtectionLevel protLevel, bool Virtual = false) const;
 	void WriteSingleClassJson(const stringRef& id) const;
-	void WriteNamespaceJson(const stringRef& namespaceId) const;
+	void WriteNamespaceJson(const stringRef& namespaceId, bool external) const;
 
 	// search string -> class id
 	std::map<string, string> GetUsableClasses(const stringRef& classId, const stringRef& namespaceId) const;
